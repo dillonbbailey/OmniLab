@@ -18,7 +18,7 @@ The local public ovRTX checkout identifies release **0.5.0**, commit `e3ebb35a60
 
 NVIDIA provides a Qt material-editor sample with MaterialX rendering and live parameter changes. Its graph is read-only, it uses deprecated renderer-owned scene APIs, and it is not a full USD editor. Reuse the integration lessons; build OmniLab around the current attached-stage API. [Sample documentation](https://github.com/NVIDIA-Omniverse/ovrtx/blob/main/docs/examples/c_material_editor.rst)
 
-The original plan was based on source, schema and documentation inspection. The initial P0–P2 slice has now passed native GPU and Qt desktop checks; see [implementation status](P0_P2_STATUS.md) for exact coverage and remaining gates. This does not establish complete Lunatic parity. [Evidence manifest](EVIDENCE.md)
+The original plan was based on source, schema and documentation inspection. P0–P2 first passed native GPU and Qt desktop checks; the P2–P5 core workflows are now implemented and validated. See [current implementation and remaining acceptance gates](P2_P5_STATUS.md) and the historical [P0–P2 status](P0_P2_STATUS.md). Complete Lunatic release parity remains open. [Evidence manifest](EVIDENCE.md)
 
 ## Architecture
 
@@ -124,7 +124,7 @@ Keep authoring independent of renderer availability: document inspection, graph 
 
 Replace Storm/MoonRay viewport rendering with ovRTX RTPT by default, with PathTracing and Minimal options according to tested capabilities. Preserve orbit/pan/dolly, perspective/orthographic cameras, frame selected/all, camera locks, up-axis conventions, selection, box picking, outlines, transform handles, time samples and purpose visibility. Geometry overlays such as grids, light/camera guides and gizmos belong to the editor, not saved scene geometry.
 
-Native shaded and unlit wireframe are implemented and verified in RTPT/PT; see [P0–P2 evidence](P0_P2_STATUS.md). They shade the wire geometry or draw unlit lines. Wireframe over filled shaded surfaces and depth-correct geometry-points modes still need a dedicated implementation/prototype. Lunatic currently uses a Storm overlay for some MoonRay views; MinimalRendering is not automatically an equivalent wireframe mode. Do not silently remove these controls or suggest a supported mode that produces the wrong result.
+Native shaded and unlit wireframe are implemented and verified in RTPT/PT. Filled-surface polygon-wire and points overlays now use native metric distance for occlusion. The frontend overlays have explicit authored-geometry and work-budget limits; see [P2–P5 evidence](P2_P5_STATUS.md). MinimalRendering is not treated as an equivalent wireframe mode.
 
 Use separate RenderProducts for viewport, material preview and final output as needed. Keep resolution/camera/output settings product-specific. Apply shared scene/global settings consistently. For beauty export use linear `HdrColor`; `LdrColor` is the display path. Preserve HDR/negative source values in EXR inspection. OIIO handles channel naming, multipart reads and atomic EXR writing; ovRTX output arrays alone are not a finished RenderView.
 
@@ -167,7 +167,7 @@ Add a future **Export settings** action that writes both the static catalog and 
 | **P6 — optional ovUI frontend** | Implement frontend adapters over the accepted core, reuse appropriate ovUI widgets, port material canvas/RenderView/console | Same command-level suite and document round trips as Qt; separate real-input UI checks; no divergent document or undo ownership |
 | **P7 — MoonRay graph conversion (low priority)** | Preserve source graphs; add explicitly reviewed MDL/MaterialX/OpenPBR conversion recipes and reports, with optional baking | Supported mappings pass visual comparison; unsupported nodes remain reported and original graphs are retained |
 
-The initial P0–P2 slice is implemented; full milestone acceptance remains tracked in [P0–P2 status](P0_P2_STATUS.md). The P0 thin slice must open a USD fixture in a small Qt window, render it through ovstage/ovRTX, select a prim, edit a transform and OpenPBR parameter, undo both, save layered USD, reopen and reproduce the authored result. Add one native MDL fixture and record RTPT/PT differences. This resolves the largest architectural assumptions before moving the whole application.
+P0–P5 implementations and their acceptance evidence are tracked in [P0–P2 status](P0_P2_STATUS.md) and [P2–P5 status](P2_P5_STATUS.md). The native Qt/USD/material/final-render workflows run, including tested MDL function graphs and projector/bake paths. The remaining release-parity gates are listed explicitly; they are not implicitly marked complete by introducing these workspaces.
 
 The sequence is dependency driven. Material catalog work can begin after P0 while the viewport is completed; final RenderView still depends on snapshot and output correctness. Do not estimate full delivery from a renderer demo: Lunatic already contains substantial composition, image inspection and graph behavior. Produce calendar estimates after P0 exposes the compatibility and performance work.
 

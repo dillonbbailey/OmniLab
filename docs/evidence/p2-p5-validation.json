@@ -1,0 +1,33 @@
+{
+  "date": "2026-10-02T23:46:22.411533+00:00",
+  "python": "3.12.3",
+  "packages": {
+    "ovrtx": "0.5.0.377615",
+    "ovstage": "0.2.0.377349",
+    "usd-core": "26.8",
+    "MaterialX": "1.39.5",
+    "OpenImageIO": "3.1.18.0",
+    "PySide6-Essentials": "6.8.3",
+    "mcp": "1.30.0",
+    "pytest": "8.4.2"
+  },
+  "cpu_suite": {
+    "command": ".venv/bin/python -m pytest -q",
+    "passed": 128,
+    "failed": 0,
+    "skipped": 0
+  },
+  "wheel_build": "passed; 828 RTX declarations and 19 creation fields verified inside the wheel",
+  "gpu": "NVIDIA RTX PRO 6000 Blackwell; driver 595.91.07",
+  "evidence": {
+    "p2-p5-viewport.json": "08edb71e5ae9cf7c1801aa0401ff3cbce2424e263939d81a60f5a5d0a305662e",
+    "material-editor.json": "7593d532629e15f462a8afb153e4c140076c8e030d637599c5506f6613aa4273",
+    "render-view.json": "63bd12b7bbbba1747d3d03541cb81d9aeed418a69a074b772972ad41747891ee",
+    "automation.json": "4e5f19e6990d781d4ea14e05d4a946cd633c2ce465ee2ea7cf40328f14529041",
+    "mdl-graph.json": "403cd6e0f9f330d995cf248ef60d29c9df09f48ebf0dbf3a8cf9d99efa23dffa",
+    "final-jobs.json": "da2344bd941fcda31168a067aaeb727d99f4f80a71a1fd888966734d0295d62d",
+    "bake-projector.json": "5e42b82b7df8dc35c102f38589e9a8a3dcfb30ece9deee2cbb1a111f6aeddfa6"
+  },
+  "sdk_binaries_committed": false,
+  "full_lunatic_parity": "remaining gates documented in docs/P2_P5_STATUS.md"
+}

@@ -7,8 +7,20 @@ from omnilab.core.camera import camera_payload
 MODES = ("RealTimePathTracing", "PathTracing", "MinimalRendering")
 
 
+def retire_snapshots(directory, loaded_path):
+    """Called only after the worker acknowledges replacing its old runtime stage."""
+    import shutil
+    root = Path(directory).resolve()
+    active = Path(loaded_path).resolve().parent
+    if active.parent != root:
+        return
+    for path in root.iterdir():
+        if path.is_dir() and path.name.isdigit() and path != active and not path.is_symlink():
+            shutil.rmtree(path)
+
+
 def publish(document, directory, camera, resolution=(800, 500), mode=MODES[0], samples=16,
-            purposes=("default", "render"), aovs=("LdrColor",), *, wireframe=False, wireframe_mode="shaded"):
+            purposes=("default", "render"), aovs=("LdrColor",), *, wireframe=False, wireframe_mode="shaded", region=None, profile='viewport'):
     if mode not in MODES:
         raise ValueError("Unknown renderer mode.")
     if wireframe_mode not in ("shaded", "emissive"):
@@ -19,6 +31,8 @@ def publish(document, directory, camera, resolution=(800, 500), mode=MODES[0], s
     # USD resolves relative asset paths against the original layers during flattening.
     layer = document.stage.Flatten()
     stage = Usd.Stage.Open(layer)
+    from omnilab.materials.projector import synchronize
+    synchronize(stage, document.frame)
     root = "/__OmniLabViewport"
     while stage.GetPrimAtPath(root):
         root += "_"
@@ -28,7 +42,14 @@ def publish(document, directory, camera, resolution=(800, 500), mode=MODES[0], s
     product = UsdRender.Product.Define(stage, product_path)
     product.CreateCameraRel().SetTargets([cam.GetPath()])
     product.CreateResolutionAttr(Gf.Vec2i(*resolution))
-    product.GetPrim().CreateAttribute("deviceIds", Sdf.ValueTypeNames.UIntArray).Set([0])
+    if region is not None:
+        from .render_region import validate_region
+        x0, y0, x1, y1 = validate_region(region, *resolution)
+        width, height = resolution
+        product.CreateDataWindowNDCAttr(Gf.Vec4f(x0 / width, y0 / height, x1 / width, y1 / height))
+    preferences = getattr(document, 'view', {})
+    devices = preferences.get('renderer_config', {}).get('active_cuda_gpus') or '0'
+    product.GetPrim().CreateAttribute("deviceIds", Sdf.ValueTypeNames.UIntArray).Set([int(v) for v in devices.split(',')])
     product.GetPrim().CreateAttribute("omni:rtx:rendermode", Sdf.ValueTypeNames.Token).Set(mode)
     product.GetPrim().CreateAttribute("omni:rtx:pt:samplesPerPixel", Sdf.ValueTypeNames.UInt).Set(int(samples))
     # Author both states explicitly: the renderer persists across snapshots, so
@@ -36,6 +57,8 @@ def publish(document, directory, camera, resolution=(800, 500), mode=MODES[0], s
     product.GetPrim().CreateAttribute("omni:rtx:wireframe:enabled", Sdf.ValueTypeNames.Bool).Set(wireframe)
     product.GetPrim().CreateAttribute("omni:rtx:wireframe:mode", Sdf.ValueTypeNames.Token).Set(wireframe_mode if wireframe else "instance")
     product.GetPrim().CreateAttribute("omni:rtx:wireframe:thickness", Sdf.ValueTypeNames.Float).Set(1.5)
+    from .settings import apply_product
+    apply_product(product.GetPrim(), preferences.get('rtx_settings', {}).get(profile, {}))
     variables = []
     for name in aovs:
         if not Sdf.Path.IsValidIdentifier(name):
@@ -57,4 +80,6 @@ def publish(document, directory, camera, resolution=(800, 500), mode=MODES[0], s
         raise RuntimeError("Could not publish the viewport snapshot.")
     return dict(path=str(path.resolve()), product=product_path, camera=cam_path,
                 frame=document.frame, time_codes_per_second=document.stage.GetTimeCodesPerSecond(),
-                resolution=list(resolution), mode=mode, samples=samples, camera_data=camera_payload(camera))
+                resolution=list(resolution), mode=mode, samples=samples, region=region, camera_data=camera_payload(camera),
+                renderer_config=dict(preferences.get('renderer_config', {})),
+                settings=dict(preferences.get('rtx_settings', {}).get(profile, {})), device_ids=[int(v) for v in devices.split(',')])

@@ -13,6 +13,12 @@ class ViewCamera:
     pitch: float = 18.0
     orthographic: bool = False
     up_axis: str = "Y"
+    focal_length: float = 50.
+    horizontal_aperture: float = 36.
+    roll: float = 0.
+    horizontal_offset: float = 0.
+    vertical_offset: float = 0.
+    clipping: list | None = None
 
     def matrix(self):
         yaw, pitch = math.radians(self.yaw), math.radians(self.pitch)
@@ -22,15 +28,18 @@ class ViewCamera:
             offset = Gf.Vec3d(offset[0], -offset[2], offset[1])
             up = Gf.Vec3d(0, 0, 1)
         target = Gf.Vec3d(*self.target)
-        return Gf.Matrix4d().SetLookAt(target + offset * self.distance, target, up).GetInverse()
+        base = Gf.Matrix4d().SetLookAt(target + offset * self.distance, target, up).GetInverse()
+        return Gf.Matrix4d().SetRotate(Gf.Rotation(Gf.Vec3d(0, 0, 1), self.roll)) * base
 
     def camera(self, aspect):
         camera = Gf.Camera()
         camera.transform = self.matrix()
-        camera.horizontalAperture = 36
-        camera.verticalAperture = 36 / max(aspect, .01)
-        camera.focalLength = 50
-        camera.clippingRange = Gf.Range1f(max(.001, self.distance / 10000), max(1000, self.distance * 100))
+        camera.horizontalAperture = self.horizontal_aperture
+        camera.verticalAperture = self.horizontal_aperture / max(aspect, .01)
+        camera.focalLength = self.focal_length
+        camera.horizontalApertureOffset = self.horizontal_offset
+        camera.verticalApertureOffset = self.vertical_offset
+        camera.clippingRange = Gf.Range1f(*self.clipping) if self.clipping else Gf.Range1f(max(.001, self.distance / 10000), max(1000, self.distance * 100))
         if self.orthographic:
             camera.projection = Gf.Camera.Orthographic
             camera.horizontalAperture = self.distance * 7.2
@@ -63,6 +72,23 @@ class ViewCamera:
     def from_dict(cls, data):
         return cls(**{key: value for key, value in data.items() if key in cls.__dataclass_fields__})
 
+    @classmethod
+    def from_camera(cls, camera, distance=10., up_axis='Y'):
+        orthographic = camera.projection == Gf.Camera.Orthographic
+        if orthographic:
+            distance = camera.horizontalAperture / 7.2
+        offset = Gf.Vec3d(*camera.transform[2][:3]).GetNormalized()
+        components = (offset[0], offset[2], -offset[1]) if up_axis == 'Z' else offset
+        result = cls(target=list(camera.transform.ExtractTranslation()-offset*distance), distance=distance,
+            yaw=math.degrees(math.atan2(components[0], components[2])),
+            pitch=math.degrees(math.asin(max(-1, min(1, components[1])))), orthographic=orthographic,
+            up_axis=up_axis, focal_length=camera.focalLength, horizontal_aperture=camera.horizontalAperture,
+            horizontal_offset=camera.horizontalApertureOffset, vertical_offset=camera.verticalApertureOffset,
+            clipping=[camera.clippingRange.min, camera.clippingRange.max])
+        local = camera.transform * result.matrix().GetInverse()
+        result.roll = math.degrees(math.atan2(local[0][1], local[0][0]))
+        return result
+
 
 def scene_camera(stage, path, frame, aspect):
     camera = UsdGeom.Camera.Get(stage, path)
@@ -77,5 +103,6 @@ def camera_payload(camera):
     return dict(matrix=[list(row) for row in camera.transform],
                 horizontalAperture=camera.horizontalAperture,
                 verticalAperture=camera.verticalAperture, focalLength=camera.focalLength,
+                horizontalApertureOffset=camera.horizontalApertureOffset, verticalApertureOffset=camera.verticalApertureOffset,
                 clippingRange=[camera.clippingRange.min, camera.clippingRange.max],
                 projection="orthographic" if camera.projection == Gf.Camera.Orthographic else "perspective")

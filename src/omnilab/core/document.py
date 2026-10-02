@@ -101,7 +101,7 @@ class Document:
         else:
             allowed = {"add_prim", "remove_prim", "duplicate_prim", "reparent_prim", "set_default_prim",
                        "set_prim_specifier", "set_prim_active", "set_prims_active", "set_transform",
-                       "set_transform_lock", "set_frame_range", "set_property", "set_stage_metadata",
+                       "set_transform_lock", "set_camera_view", "set_frame_range", "set_property", "set_stage_metadata",
                        "set_layer_muted", "set_sublayers", "create_sublayer", "add_arc", "apply_schema",
                        "convert_to_mesh", "bind_scene_material", "restore"}
             if name not in allowed:

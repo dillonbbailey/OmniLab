@@ -1,0 +1,17 @@
+mdl 1.7;
+import ::df::*;
+import ::anno::*;
+
+export color tint_color(color value = color(0.8, 0.1, 0.03), float gain = 1.0)
+    = value * gain;
+
+export material matte(
+    color tint = color(0.8, 0.1, 0.03)
+        [[anno::display_name("Tint"), anno::in_group("Surface")]],
+    uniform float roughness = 0.2
+        [[anno::hard_range(0.0, 1.0)]]
+) = material(
+    surface: material_surface(
+        scattering: df::diffuse_reflection_bsdf(tint: tint, roughness: roughness)
+    )
+);

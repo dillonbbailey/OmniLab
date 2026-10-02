@@ -1,5 +1,6 @@
 """CPU image presentation, camera gestures and USD transform manipulators."""
 import math
+import numpy as np
 
 from PySide6.QtCore import Qt, QPointF, QRectF, Signal
 from PySide6.QtGui import QColor, QImage, QPainter, QPen
@@ -15,6 +16,8 @@ class Viewport(QWidget):
     cameraChanged = Signal()
     pickRequested = Signal(list, bool)
     transformCommitted = Signal(dict)
+    transformPreviewChanged = Signal(object)
+    cameraCommitted = Signal(dict)
     frameRequested = Signal(bool)
     resized = Signal()
 
@@ -37,10 +40,15 @@ class Viewport(QWidget):
         self.drag = None
         self.preview_world = None
         self.edit_time = "default"
+        self.depth = None
+        self.depth_current = False
+        self.visible_purposes = {'default', 'render'}
+        self.edit_camera = False
+        self.camera_gesture = None
 
     def render_camera(self):
         aspect = max(self.width(), 1) / max(self.height(), 1)
-        if self.scene_camera_path and self.document:
+        if self.scene_camera_path and self.document and self.camera_gesture is None:
             return scene_camera(self.document.stage, self.scene_camera_path, self.document.frame, aspect)
         return self.camera.camera(aspect)
 
@@ -60,6 +68,8 @@ class Viewport(QWidget):
         if channels != 4:
             raise ValueError("Expected RGBA8 LdrColor output.")
         self.image = QImage(message["pixels"], w, h, w * 4, QImage.Format_RGBA8888).copy()
+        self.depth = np.frombuffer(message['depth'], dtype=np.float32).reshape(h, w) if message.get('depth') else None
+        self.depth_current = message.get('depth_current', False)
         self.message = ""
         self.update()
 
@@ -109,7 +119,7 @@ class Viewport(QWidget):
                     a, b, c, d = ([v[0], v[2], 0] for v in (a, b, c, d))
                 self.line3d(painter, a, b)
                 self.line3d(painter, c, d)
-        if self.document and (self.guides or self.display == "Points"):
+        if self.document and (self.guides or self.display in ("Points", "Wire over Shaded")):
             self.draw_scene_overlays(painter)
         self.handles = []
         world = self.preview_world or self.selected_world()
@@ -147,6 +157,7 @@ class Viewport(QWidget):
 
     def draw_scene_overlays(self, painter):
         time = Usd.TimeCode(self.document.frame)
+        self._overlay_budget = 100000
         for number, prim in enumerate(self.document.stage.Traverse()):
             if number > 10000:
                 break
@@ -162,20 +173,65 @@ class Viewport(QWidget):
                     painter.drawEllipse(point, 6, 6)
                     painter.drawText(point + QPointF(8, 0), prim.GetName())
                 self.line3d(painter, center, matrix.Transform(Gf.Vec3d(0, 0, -self.camera.distance * .04)))
-            if self.display != "Points" or not prim.IsA(UsdGeom.Mesh):
+            if self.display not in ("Points", "Wire over Shaded") or not prim.IsA(UsdGeom.Mesh) or self.depth is None or not self.depth_current or self._overlay_budget <= 0:
                 continue
             mesh = UsdGeom.Mesh(prim)
-            if mesh.ComputeVisibility(time) == "invisible":
+            if mesh.ComputeVisibility(time) == "invisible" or mesh.ComputePurpose() not in self.visible_purposes:
                 continue
             points = mesh.GetPointsAttr().Get(time)
             if points is None or len(points) > 100000:
                 continue
-            painter.setPen(QPen(QColor("#ccd4df"), 1))
-            transformed = [matrix.Transform(Gf.Vec3d(*p)) for p in points]
-            for point in transformed:
-                projected = self.project(point)
-                if projected is not None:
-                    painter.drawPoint(projected)
+            world = np.c_[np.asarray(points, dtype=np.float64), np.ones(len(points))] @ np.asarray(matrix)
+            painter.setPen(QPen(QColor('#dde4ed') if self.display == 'Points' else QColor('#20242b'), 1.5))
+            if self.display == 'Points':
+                self.depth_points(painter, world)
+            else:
+                indices = list(mesh.GetFaceVertexIndicesAttr().Get(time) or [])
+                edges, offset = set(), 0
+                for count in mesh.GetFaceVertexCountsAttr().Get(time) or []:
+                    face = indices[offset:offset+count]
+                    offset += count
+                    edges.update(tuple(sorted((a, b))) for a, b in zip(face, face[1:]+face[:1]))
+                if len(edges) > 10000:
+                    continue
+                clip = world @ np.asarray(self._view_projection)
+                for a, b in edges:
+                    if self._overlay_budget <= 0:
+                        break
+                    if a >= len(world) or b >= len(world) or clip[a,3] <= 0 or clip[b,3] <= 0:
+                        continue
+                    start, end = clip[a,:2]/clip[a,3], clip[b,:2]/clip[b,3]
+                    count = min(2048, max(2, int(np.max(np.abs(end-start)*np.array([self.image.width(),self.image.height()]))/2)+1))
+                    t = np.linspace(0, 1, count)[:,None]
+                    # Perspective-correct points at uniform screen intervals.
+                    values = ((1-t)*world[a]/clip[a,3]+t*world[b]/clip[b,3])/((1-t)/clip[a,3]+t/clip[b,3])
+                    self.depth_points(painter, values)
+
+    def depth_points(self, painter, world):
+        count = min(len(world), getattr(self, '_overlay_budget', 100000))
+        self._overlay_budget = getattr(self, '_overlay_budget', 100000) - count
+        world = world[:count]
+        if not len(world):
+            return
+        clip = world @ np.asarray(self._view_projection)
+        front = (clip[:,3] > 1e-12) & (clip[:,2] >= -clip[:,3]) & (clip[:,2] <= clip[:,3])
+        if not front.any():
+            return
+        world, clip = world[front], clip[front]
+        ndc = clip[:,:2] / clip[:,3,None]
+        uv = (ndc * np.array([1.,-1.]) + 1.) * .5
+        inside = ((uv >= 0) & (uv < 1)).all(axis=1)
+        world, uv = world[inside], uv[inside]
+        if not len(world):
+            return
+        height, width = self.depth.shape
+        xy = (uv * [width, height]).astype(int)
+        camera = np.array(self._view_matrix.GetInverse().ExtractTranslation())
+        distance = np.linalg.norm(world[:,:3]-camera, axis=1) * UsdGeom.GetStageMetersPerUnit(self.document.stage)
+        visible = distance <= self.depth[xy[:,1],xy[:,0]] + np.maximum(.0001, distance * .003)
+        rect = self.image_rect()
+        for point in uv[visible]:
+            painter.drawPoint(QPointF(rect.left()+point[0]*rect.width(), rect.top()+point[1]*rect.height()))
 
     def mousePressEvent(self, event):
         self.setFocus()
@@ -201,8 +257,8 @@ class Viewport(QWidget):
                                      delta=delta, length=length, size=size)
                     return
         if kind != "pick" and self.scene_camera_path:
-            # Viewing a scene camera never silently authors into it.
-            self.scene_camera_path = ""
+            if not self.begin_camera_navigation():
+                return
         self.drag = dict(kind=kind, start=pos, last=pos,
                          additive=bool(event.modifiers() & Qt.ControlModifier))
 
@@ -225,6 +281,8 @@ class Viewport(QWidget):
             ratio = (d.x() * axis_delta.x() + d.y() * axis_delta.y()) / self.drag["length"]
             amount = ratio * self.drag["size"] if self.tool == "translate" else ratio * 90 if self.tool == "orient" else max(.01, 1 + ratio)
             self.preview_world = manipulated_world(self.drag["world"], self.tool, self.drag["axis"], amount, self.space)
+            self.transformPreviewChanged.emit(dict(path=self.document.selection[0], before=rows(self.drag['world']),
+                                                   matrix=rows(self.preview_world)))
         if kind in ("orbit", "pan", "dolly"):
             self.cameraChanged.emit()
         self.update()
@@ -245,17 +303,48 @@ class Viewport(QWidget):
                 values = [(selection.left() - rect.left()) / rect.width(), (selection.top() - rect.top()) / rect.height(),
                           (selection.right() - rect.left()) / rect.width(), (selection.bottom() - rect.top()) / rect.height()]
                 self.pickRequested.emit(values, drag["additive"])
+        if self.camera_gesture is not None:
+            self.finish_camera_navigation()
         self.preview_world = None
         self.update()
 
     def wheelEvent(self, event):
-        self.scene_camera_path = ""
+        if self.scene_camera_path and not self.begin_camera_navigation():
+            return
         self.camera.dolly(-event.angleDelta().y() / 1200)
         self.cameraChanged.emit()
+        if self.camera_gesture is not None:
+            self.finish_camera_navigation()
         self.update()
+
+    def begin_camera_navigation(self):
+        prim = self.document.stage.GetPrimAtPath(self.scene_camera_path)
+        if self.edit_camera and is_locked(prim):
+            self.message = 'The selected camera transform is locked.'
+            self.update()
+            return False
+        camera = self.render_camera()
+        self.camera = ViewCamera.from_camera(camera, self.camera.distance, self.camera.up_axis)
+        if self.edit_camera:
+            self.camera_gesture = self.scene_camera_path
+        else:
+            self.scene_camera_path = ''
+        return True
+
+    def finish_camera_navigation(self):
+        path, self.camera_gesture = self.camera_gesture, None
+        camera = self.camera.camera(max(self.width(), 1) / max(self.height(), 1))
+        self.cameraCommitted.emit(dict(path=path, values={'matrix': rows(self.camera.matrix())}, space='world',
+            representation='matrix', frame=self.document.frame, time=self.edit_time,
+            apertures=[camera.horizontalAperture, camera.verticalAperture] if self.camera.orthographic else None))
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Escape:
+            if self.drag and self.drag['kind'] == 'transform':
+                self.transformPreviewChanged.emit(None)
+            if self.camera_gesture is not None:
+                self.camera_gesture = None
+                self.cameraChanged.emit()
             self.drag = None
             self.preview_world = None
             self.update()

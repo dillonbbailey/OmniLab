@@ -219,6 +219,84 @@
       "destination": "src/omnilab/usd/usd_material_bindings.py",
       "adapted": true,
       "note": "Only can_bind_material and prepare_material_binding reused."
+    },
+    {
+      "source": "moonray_editor/exr_image.py",
+      "sha256": "140cc9a2761eb6e457428c6693d3d264f8b9f1de91ad917c50a1b0ea6f7da3ca",
+      "destination": "src/omnilab/render/exr_image.py",
+      "adapted": false
+    },
+    {
+      "source": "moonray_editor/exr_channels.py",
+      "sha256": "047e41756ea36e3ed1725e03ba08ad87bceef7629298c732d890b3b19ae8ccc2",
+      "destination": "src/omnilab/render/exr_channels.py",
+      "adapted": false
+    },
+    {
+      "source": "moonray_editor/render_region.py",
+      "sha256": "91253cdd06654d94c04ece25b74d870cfeaac87adefc58fe9674e3d1d2e96ffb",
+      "destination": "src/omnilab/render/render_region.py",
+      "adapted": false
+    },
+    {
+      "source": "moonray_editor/texture_thumbnail.py",
+      "sha256": "96e3f3329f2f6e41aa6cc9c2ad369138d02a455579127a190020206c3def856c",
+      "destination": "src/omnilab/render/texture_thumbnail.py",
+      "adapted": false
+    },
+    {
+      "source": "moonray_editor/asset_publish.py",
+      "sha256": "a28133a8f2f32d4efd0fc02f6a4e19de76075aad03b5bcb95431b17cd2e4dee2",
+      "destination": "src/omnilab/usd/asset_publish.py",
+      "adapted": false
+    },
+    {
+      "source": "moonray_editor/usd_asset_publish.py",
+      "sha256": "82a0eb0240d544b3645368335409dec3bc33c6a209ec1ae2be6b66d1d7e51025",
+      "destination": "src/omnilab/usd/usd_asset_publish.py",
+      "adapted": true
+    },
+    {
+      "source": "tests/test_exr_image.py",
+      "sha256": "491acbb0656b0dcda94b582b8489667341ac578db14abe5fd138fc26d3f8f75f",
+      "destination": "tests/parity/test_exr_image.py",
+      "adapted": true
+    },
+    {
+      "source": "tests/test_usd_asset_publish.py",
+      "sha256": "bdc80a8984c9272d543328555fc25b478a56bcb8dd8a5eda485162ee9f578e05",
+      "destination": "tests/parity/test_usd_asset_publish.py",
+      "adapted": true
+    },
+    {
+      "source": "moonray_editor/usd_asset_sections.py",
+      "sha256": "b7e6107bf57ba40a31f4c96af8f09f4e9e8259c2aa644e251198f624f43c6366",
+      "destination": "src/omnilab/usd/usd_asset_sections.py",
+      "adapted": false
+    },
+    {
+      "source": "tests/test_region_image.py",
+      "sha256": "b1981912c2dcb7d75000f4413f9e685b9e8545d58c6d6d25db3532e6bd4c7e91",
+      "destination": "tests/parity/test_region_image.py",
+      "adapted": true
+    },
+    {
+      "source": "moonray_editor/console_execution.py",
+      "destination": "src/omnilab/automation/console_execution.py",
+      "sha256": "2eb8803d9f9f75716b067936c9e143ca3a7aa88d026481ebf59ea9a121cb4a8f",
+      "adapted": false
+    },
+    {
+      "source": "moonray_editor/mcp_transport.py",
+      "destination": "src/omnilab/automation/mcp_transport.py",
+      "sha256": "49d741532dbfb4a26c0bbc6ec67ab89f3e388241c9ae5a963ae3b2377534c549",
+      "adapted": true
+    },
+    {
+      "source": "moonray_editor/mcp_bridge.py",
+      "destination": "src/omnilab/frontends/qt/mcp_bridge.py",
+      "sha256": "6a565e8f20fb085f752d06d95aab61faf9f75f3c7235cf57894b03b7943a1201",
+      "adapted": true
     }
   ]
 }

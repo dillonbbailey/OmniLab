@@ -1,0 +1,9 @@
+{
+  "console_native_stop_seconds": 0.535759419995884,
+  "mcp_tools": 15,
+  "mcp_atomic_edit_undo": true,
+  "mcp_stale_revision_rejected": true,
+  "status": "passed",
+  "mcp_starts_stopped": true,
+  "mcp_endpoint_removed": true
+}

@@ -1,0 +1,74 @@
+{
+  "status": "passed",
+  "function_graph_difference": 7.669203125,
+  "reflection": {
+    "status": "passed",
+    "mdl_name": "::omnilab_test",
+    "sha256": "61a3347d1b626933a6e455d141cf123f7bf1b48ec7142bf642015c95f5f183e8",
+    "definitions": [
+      {
+        "name": "matte",
+        "signature": "::omnilab_test::matte(color,float)",
+        "material": true,
+        "return_type": "declarative struct \"::material\" in \"::material_category\" {\n    alias uniform\n        bool thin_walled;\n    declarative struct \"::material_surface\" {\n        bsdf scattering;\n        declarative struct \"::material_emission\" {\n            edf emission;\n            color intensity;\n            enum \"::intensity_mode\" {\n                intensity_radiant_exitance = 0,\n                intensity_power = 1,\n            } mode;\n        } emission;\n    } surface;\n    declarative struct \"::material_surface\" {\n        bsdf scattering;\n        declarative struct \"::material_emission\" {\n            edf emission;\n            color intensity;\n            enum \"::intensity_mode\" {\n                intensity_radiant_exitance = 0,\n                intensity_power = 1,\n            } mode;\n        } emission;\n    } backface;\n    color ior;\n    declarative struct \"::material_volume\" {\n        vdf scattering;\n        color absorption_coefficient;\n        color scattering_coefficient;\n        color emission_intensity;\n    } volume;\n    declarative struct \"::material_geometry\" {\n        float3 displacement;\n        float cutout_opacity;\n        float3 normal;\n    } geometry;\n    hair_bsdf hair;\n}",
+        "inputs": [
+          {
+            "name": "tint",
+            "type": "color",
+            "default": [
+              0.800000011920929,
+              0.10000000149011612,
+              0.029999999329447746
+            ],
+            "annotations": {
+              "::anno::display_name(string)": {
+                "name": "Tint"
+              },
+              "::anno::in_group(string,bool)": {
+                "group": "Surface",
+                "collapsed": false
+              }
+            }
+          },
+          {
+            "name": "roughness",
+            "type": "float",
+            "default": 0.20000000298023224,
+            "annotations": {
+              "::anno::hard_range(float,float)": {
+                "min": 0.0,
+                "max": 1.0
+              }
+            }
+          }
+        ],
+        "annotations": {}
+      },
+      {
+        "name": "tint_color",
+        "signature": "::omnilab_test::tint_color(color,float)",
+        "material": false,
+        "return_type": "color",
+        "inputs": [
+          {
+            "name": "value",
+            "type": "color",
+            "default": [
+              0.800000011920929,
+              0.10000000149011612,
+              0.029999999329447746
+            ],
+            "annotations": {}
+          },
+          {
+            "name": "gain",
+            "type": "float",
+            "default": 1.0,
+            "annotations": {}
+          }
+        ],
+        "annotations": {}
+      }
+    ]
+  }
+}

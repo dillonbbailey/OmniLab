@@ -4,7 +4,7 @@ from pathlib import Path
 import traceback
 
 
-def run(connection, directory):
+def run(connection, directory, config=None):
     directory = Path(directory)
     # Native libraries write directly to stdout/stderr; keep diagnostics off the transport.
     fd = os.open(directory / "worker.log", os.O_CREAT | os.O_WRONLY | os.O_APPEND, 0o600)
@@ -15,7 +15,7 @@ def run(connection, directory):
     try:
         connection.send(dict(type="status", text="Initializing ovRTX; first-run shader compilation can take several minutes."))
         from .backend import Backend
-        backend = Backend(directory / "ovrtx.log")
+        backend = Backend(directory / "ovrtx.log", config)
         connection.send(dict(type="ready"))
         snapshot = None
         current = None
@@ -64,8 +64,10 @@ def run(connection, directory):
             connection.send(dict(type="render_started", request=request))
             outputs, hits, ms = backend.render(pending_pick["rect"] if pending_pick else None)
             pixels = outputs["LdrColor"]
+            depth = outputs.get('DistanceToCameraSD')
             connection.send(dict(type="frame", request=request, shape=pixels.shape,
                                  pixels=pixels.tobytes(), milliseconds=ms, ordinal=backend.ordinal,
+                                 depth=depth.tobytes() if depth is not None else None,
                                  hits=hits if pending_pick else None,
                                  additive=pending_pick.get("additive", False) if pending_pick else False))
             pending_pick = None

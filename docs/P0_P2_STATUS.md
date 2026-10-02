@@ -1,5 +1,7 @@
 # P0–P2 implementation status
 
+Historical report. The later [P2–P5 implementation](P2_P5_STATUS.md) supersedes its outstanding-work statements about graphs, RenderView, console, live gizmos, settings and depth overlays. Evidence below records the original P0–P2 baseline.
+
 2026-10-02. **The first usable P0–P2 slice is implemented and GPU-tested. Full milestone acceptance and complete Lunatic parity are not claimed.** MoonRay graph conversion has moved to **P7 (low priority)**; it is no longer part of P3 or P5.
 
 ## What runs

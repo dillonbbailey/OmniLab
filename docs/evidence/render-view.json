@@ -1,0 +1,10 @@
+{
+  "status": "passed",
+  "cancel_seconds": 0.35031098399485927,
+  "fractional_frames": [
+    1.25,
+    1.5
+  ],
+  "exr_display": true,
+  "matte_component_and_pixel_probe": true
+}

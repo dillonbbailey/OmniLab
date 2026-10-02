@@ -122,3 +122,71 @@ def test_scene_change_rejects_inflight_camera_frame(window, monkeypatch):
     assert window.stale_frame_count == 1
     window.flush_view()
     assert window.submitted_request == window.request
+
+
+def test_scene_camera_navigation_commit_escape_and_detach(window):
+    from pxr import Gf
+    from omnilab.core.camera import ViewCamera
+    camera = UsdGeom.Camera.Define(window.document.stage, '/World/Camera')
+    camera.SetFromCamera(ViewCamera(target=[0, 1, 0], distance=8, yaw=51, roll=13).camera(1.5))
+    window.refresh()
+    window.cameras.setCurrentIndex(window.cameras.findData('/World/Camera'))
+    before = camera.GetCamera().transform
+    window.camera_edit.setChecked(True)
+    start, end = QPoint(120, 150), QPoint(200, 170)
+    QTest.mousePress(window.viewport, Qt.LeftButton, Qt.AltModifier, start)
+    QTest.mouseMove(window.viewport, end, 10)
+    assert camera.GetCamera().transform == before
+    QTest.keyClick(window.viewport, Qt.Key_Escape)
+    QTest.mouseRelease(window.viewport, Qt.LeftButton, Qt.AltModifier, end)
+    assert camera.GetCamera().transform == before and not window.document.edits.undo
+    QTest.mousePress(window.viewport, Qt.LeftButton, Qt.AltModifier, start)
+    QTest.mouseMove(window.viewport, end, 10)
+    QTest.mouseRelease(window.viewport, Qt.LeftButton, Qt.AltModifier, end)
+    assert not Gf.IsClose(camera.GetCamera().transform, before, 1e-6)
+    assert len(window.document.edits.undo) == 1
+    window.execute('restore')
+    assert Gf.IsClose(camera.GetCamera().transform, before, 1e-6)
+    window.camera_edit.setChecked(False)
+    QTest.mousePress(window.viewport, Qt.LeftButton, Qt.AltModifier, start)
+    QTest.mouseMove(window.viewport, end, 10)
+    QTest.mouseRelease(window.viewport, Qt.LeftButton, Qt.AltModifier, end)
+    assert not window.viewport.scene_camera_path
+    assert not window.cameras.currentData()
+    assert Gf.IsClose(camera.GetCamera().transform, before, 1e-6)
+
+
+def test_depth_overlay_rejects_occluded_and_behind_camera_points(window):
+    import numpy as np
+    from pxr import Gf
+    from omnilab.core.camera import ViewCamera
+    from PySide6.QtGui import QImage
+    viewport = window.viewport
+    viewport.camera = ViewCamera(distance=5, yaw=0, pitch=0)
+    camera = viewport.camera.camera(1)
+    viewport._view_matrix = camera.frustum.ComputeViewMatrix()
+    viewport._view_projection = viewport._view_matrix * camera.frustum.ComputeProjectionMatrix()
+    UsdGeom.SetStageMetersPerUnit(window.document.stage, 1.)
+    viewport.image = QImage(100, 100, QImage.Format_RGBA8888)
+    viewport.depth = np.full((100, 100), 5., dtype=np.float32)
+    points = []
+    class Painter:
+        def drawPoint(self, point):
+            points.append(point)
+    viewport.depth_points(Painter(), np.array([[0., 0., 0., 1.], [0., 0., -2., 1.], [0., 0., 6., 1.]]))
+    assert len(points) == 1
+
+
+def test_document_undo_refreshes_material_tabs_and_accepted_frame_is_displayed(window):
+    from omnilab.materials.graph import create_material
+    graph = create_material(window.document, 'Temporary')
+    window.open_material_editor()
+    editor = window.material_editor
+    editor.open_material(str(graph.path))
+    window.execute('restore')
+    assert all(str(editor.tabs.widget(i).graph.path) != str(graph.path) for i in range(editor.tabs.count()))
+    window.request = window.submitted_request = window.frame_floor = 500
+    window.renderer_event(dict(type='frame', epoch=window.bridge.epoch, request=500,
+        shape=(1,1,4), pixels=b'\xff\x00\x00\xff', milliseconds=1, hits=None))
+    assert not window.viewport.image.isNull()
+    assert window.viewport.image.pixelColor(0, 0).red() == 255

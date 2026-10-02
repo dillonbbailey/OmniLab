@@ -18,13 +18,14 @@ class RendererBridge(QObject):
         self.process = None
         self.epoch = 0
 
-    def start(self):
+    def start(self, config=None):
         self.stop()
         self.epoch += 1
+        self.config = dict(config or {})
         epoch = self.epoch
         context = multiprocessing.get_context("spawn")
         self.connection, child = context.Pipe()
-        self.process = context.Process(target=run, args=(child, str(self.directory)), daemon=True)
+        self.process = context.Process(target=run, args=(child, str(self.directory), config), daemon=True)
         self.process.start()
         child.close()
         self.outgoing = queue.Queue()

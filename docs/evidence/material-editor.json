@@ -1,0 +1,8 @@
+{
+  "status": "passed",
+  "node_library": true,
+  "port_drag": true,
+  "tab_preview_isolation": true,
+  "preview_camera_navigation": true,
+  "udim_thumbnail": true
+}

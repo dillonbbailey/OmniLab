@@ -1,0 +1,35 @@
+{
+  "status": "passed",
+  "crop_matching_difference": 0.01305441278964281,
+  "crop_opposite_y_difference": 0.1750510334968567,
+  "outside_region_exact": true,
+  "channels": [
+    "R",
+    "G",
+    "B",
+    "A",
+    "Camera3dPositionSD.X",
+    "Camera3dPositionSD.Y",
+    "Camera3dPositionSD.Z",
+    "Camera3dPositionSD.A",
+    "DistanceToCameraSD.Z",
+    "DistanceToImagePlaneSD.Z",
+    "NormalSD.X",
+    "NormalSD.Y",
+    "NormalSD.Z",
+    "NormalSD.A"
+  ],
+  "pt_center_distance_m": 7.01111364364624,
+  "finite_aov_range": [
+    -1404.14990234375,
+    352.1472473144531
+  ],
+  "nonfinite_aov_values": 16870,
+  "jobs": [
+    "/home/dillonb/DEV/db/OmniLab/artifacts/final-jobs/jobs/a00def6b9d384a09a572bff38e3f72a9",
+    "/home/dillonb/DEV/db/OmniLab/artifacts/final-jobs/jobs/91c73ff2ef84453283204bb7021956ba",
+    "/home/dillonb/DEV/db/OmniLab/artifacts/final-jobs/jobs/05d3a5b5ec094edea05104b561bff199",
+    "/home/dillonb/DEV/db/OmniLab/artifacts/final-jobs/jobs/9d3e9581e14e4b90bcc5c9661108d8ff",
+    "/home/dillonb/DEV/db/OmniLab/artifacts/final-jobs/jobs/70ab2cde5f59463f947fcd463c474e39"
+  ]
+}

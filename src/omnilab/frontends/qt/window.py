@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, Q
     QLabel, QPushButton, QComboBox, QSpinBox, QDoubleSpinBox, QCheckBox, QDockWidget,
     QPlainTextEdit, QFileDialog, QMessageBox, QInputDialog, QMenu, QDialog, QDialogButtonBox,
     QAbstractItemView, QFormLayout, QGroupBox)
-from pxr import Sdf, Usd, UsdGeom
+from pxr import Gf, Sdf, Usd, UsdGeom
 
 from omnilab.core.document import Document
 from omnilab.core.fixtures import demo_document
@@ -75,6 +75,7 @@ class MainWindow(QMainWindow):
         self.deltas = {}
         self.snapshot_dirty = True
         self.snapshot_number = 0
+        self.publication_ms = 0.
         self._refreshing = False
         self._updating = False
         self.frame_count = 0
@@ -109,6 +110,7 @@ class MainWindow(QMainWindow):
         self.action(menu, "Save", self.save, "Ctrl+S")
         self.action(menu, "Save as…", lambda: self.save(True), "Ctrl+Shift+S")
         self.action(menu, "Export flattened USD…", self.export_flattened)
+        self.action(menu, "Publish selected prim as asset…", self.publish_asset)
         self.action(menu, "Save viewport image…", self.save_image)
         self.action(menu, "Reload from disk", self.reload)
         menu.addSeparator()
@@ -124,6 +126,10 @@ class MainWindow(QMainWindow):
         for kind in PRIM_TYPES:
             self.action(menu, kind, lambda kind=kind: self.create_prim(kind))
         menu = self.menuBar().addMenu("&View")
+        self.action(menu, "Material Editor…", self.open_material_editor, "Ctrl+M")
+        self.action(menu, "RenderView…", self.open_render_view, "F6")
+        self.action(menu, "Python Console…", self.open_python_console, "F8")
+        self.mcp_action = self.action(menu, "Start MCP", self.toggle_mcp)
         self.action(menu, "Frame selected", lambda: self.frame_selection(False), "F")
         self.action(menu, "Frame all", lambda: self.frame_selection(True), "Shift+F")
         self.action(menu, "Restart renderer", self.restart_renderer)
@@ -190,13 +196,19 @@ class MainWindow(QMainWindow):
         controls.addWidget(self.cameras, 1)
         self.ortho = QCheckBox("Ortho")
         controls.addWidget(self.ortho)
+        self.camera_edit = QCheckBox('Edit camera')
+        self.camera_edit.setToolTip('Navigation edits the selected USD camera. A drag is one undo step; Escape cancels it.')
+        controls.addWidget(self.camera_edit)
         self.viewport = Viewport()
         center_layout.addWidget(self.viewport, 1)
         splitter.addWidget(center)
-        self.viewport.cameraChanged.connect(lambda: self.schedule_view(False, interactive=True))
+        self.viewport.cameraChanged.connect(self.navigation_changed)
         self.viewport.resized.connect(lambda: self.schedule_view())
         self.viewport.pickRequested.connect(self.pick)
         self.viewport.transformCommitted.connect(lambda data: self.safe(lambda: self.execute("set_transform", data)))
+        self.viewport.transformPreviewChanged.connect(lambda data: self.safe(lambda: self.preview_transform(data)))
+        self.viewport.cameraCommitted.connect(lambda data: self.safe(lambda: self.execute('set_camera_view', data)))
+        self.camera_edit.toggled.connect(lambda value: setattr(self.viewport, 'edit_camera', value))
         self.viewport.frameRequested.connect(self.frame_selection)
         self.tool.currentIndexChanged.connect(self.tool_changed)
         self.space.currentTextChanged.connect(self.space_changed)
@@ -273,15 +285,15 @@ class MainWindow(QMainWindow):
         guides.toggled.connect(lambda value: self.overlay("guides", value))
         r_layout.addRow(guides)
         self.display = QComboBox()
-        self.display.addItems(["Shaded", "Shaded Wireframe", "Unlit Wireframe", "Points"])
-        self.display.setToolTip("Shaded Wireframe uses material and lighting on the edges; Unlit Wireframe uses unlit lines. Both show native ovRTX triangulated edges. Points uses a CPU mesh overlay without depth occlusion.")
+        self.display.addItems(["Shaded", "Shaded Wireframe", "Unlit Wireframe", "Wire over Shaded", "Points"])
+        self.display.setToolTip("Native shaded/unlit wireframe shows triangulated render edges. Wire over Shaded and Points draw authored mesh edges/vertices against native distance for occlusion; displacement/deformation can differ from authored geometry.")
         self.display.currentTextChanged.connect(self.display_changed)
         r_layout.addRow("Display", self.display)
         for text, callback in (("Restart renderer", self.restart_renderer), ("Stop renderer", self.stop_renderer), ("Inspect all ovRTX settings", self.settings_catalog)):
             button = QPushButton(text)
             button.clicked.connect(lambda checked=False, callback=callback: self.safe(callback))
             r_layout.addRow(button)
-        note = QLabel("Material graph editors: P3/P4.\nMoonRay graph conversion: P7.\nWireframe is native ovRTX; points is a mesh-only overlay.")
+        note = QLabel("Ctrl+M: Material Editor · F6: RenderView.\nMoonRay graph conversion: P7.\nPoints / filled wire overlay use authored meshes and native depth.")
         note.setWordWrap(True)
         r_layout.addRow(note)
         right.addTab(rendering, "Viewport")
@@ -291,9 +303,9 @@ class MainWindow(QMainWindow):
         self.play_button = QPushButton("Play")
         self.play_button.clicked.connect(self.toggle_play)
         timeline.addWidget(self.play_button)
-        self.start_frame = QSpinBox()
-        self.end_frame = QSpinBox()
-        self.frame = QSpinBox()
+        self.start_frame = QDoubleSpinBox()
+        self.end_frame = QDoubleSpinBox()
+        self.frame = QDoubleSpinBox()
         for spin in (self.start_frame, self.end_frame, self.frame):
             spin.setRange(-2 ** 31, 2 ** 31 - 1)
             spin.setKeyboardTracking(False)
@@ -336,6 +348,11 @@ class MainWindow(QMainWindow):
         return response == QMessageBox.Discard
 
     def install_document(self, document):
+        document.revision = max(document.revision, self.document.revision + 1)
+        if getattr(self, 'material_editor', None):
+            self.material_editor.shutdown()
+            self.material_editor.deleteLater()
+            self.material_editor = None
         self.play_timer.stop()
         self.play_button.setText("Play")
         self.document = document
@@ -360,6 +377,9 @@ class MainWindow(QMainWindow):
         self.viewport.message = "Waiting for ovRTX" if self.render_enabled else "Renderer stopped"
         self.snapshot = None
         self.refresh()
+        if (self.render_enabled and not getattr(self, 'final_render_active', False)
+                and getattr(self.bridge, 'config', {}) != document.view.get('renderer_config', {})):
+            self.restart_renderer()
         self.schedule_view()
 
     def new_document(self):
@@ -391,7 +411,9 @@ class MainWindow(QMainWindow):
                 return False
             if not Path(path).suffix:
                 path += ".omnilab" if "project" in selected else ".usda"
-        self.document.view = dict(camera=self.viewport.camera.to_dict(), scene_camera=self.viewport.scene_camera_path,
+        if getattr(self, 'render_view', None):
+            self.render_view.save_preferences()
+        self.document.view.update(camera=self.viewport.camera.to_dict(), scene_camera=self.viewport.scene_camera_path,
             viewport=dict(mode=self.mode.currentText(), samples=self.samples.value(), display=self.display.currentText(),
                           purposes=[name for name, check in self.purposes.items() if check.isChecked()]))
         self.document.save(path)
@@ -403,6 +425,25 @@ class MainWindow(QMainWindow):
         path, _ = QFileDialog.getSaveFileName(self, "Export flattened USD", "flattened.usda", "USD (*.usda *.usd *.usdc)")
         if path:
             self.document.edits.export(path, self.document.retained, flattened=True)
+
+    def publish_asset(self):
+        from omnilab.usd.usd_asset_publish import publish_asset
+        path = self.selected_path()
+        if not path or path == '/':
+            raise ValueError('Select a prim to publish.')
+        directory = QFileDialog.getExistingDirectory(self, 'Publish into a new asset directory')
+        if not directory:
+            return
+        name, ok = QInputDialog.getText(self, 'Asset name', 'New directory and asset name', text=path.rsplit('/', 1)[-1])
+        if not ok:
+            return
+        options = json_dialog(self, 'Publish options', dict(placement='local', layout='single'))
+        if options is None:
+            return
+        result = publish_asset(self.document.stage, path, directory, name, frame=self.document.frame,
+                               placement=options['placement'], layout=options['layout'], progress=self.log.appendPlainText)
+        self.log.appendPlainText('Published asset: ' + result['path'])
+        self.log_dock.show()
 
     def reload(self):
         if self.document.path:
@@ -430,9 +471,9 @@ class MainWindow(QMainWindow):
             self.refresh_tree()
             self.refresh_layers()
             self.refresh_properties()
-            self.frame.setValue(int(self.document.frame))
-            self.start_frame.setValue(int(self.document.stage.GetStartTimeCode()))
-            self.end_frame.setValue(int(self.document.stage.GetEndTimeCode()))
+            self.frame.setValue(self.document.frame)
+            self.start_frame.setValue(self.document.stage.GetStartTimeCode())
+            self.end_frame.setValue(self.document.stage.GetEndTimeCode())
             selected_camera = self.viewport.scene_camera_path
             with QSignalBlocker(self.cameras):
                 self.cameras.clear()
@@ -565,14 +606,51 @@ class MainWindow(QMainWindow):
         if delta:
             self.deltas[delta["path"] + "." + delta["attribute"]] = delta
         self.refresh()
+        self.refresh_material_tabs()
         self.schedule_view(snapshot=delta is None)
         return result
+
+    def refresh_material_tabs(self):
+        editor = getattr(self, 'material_editor', None)
+        if editor is None:
+            return
+        from pxr import UsdShade
+        for index in reversed(range(editor.tabs.count())):
+            panel = editor.tabs.widget(index)
+            if not UsdShade.Material(self.document.stage.GetPrimAtPath(panel.graph.path)):
+                editor.close_tab(index)
+            else:
+                panel.reload()
+        editor.current_changed()
 
     def apply_transform(self):
         values = {key: [field.value() for field in fields] for key, fields in self.transform_fields.items()}
         self.execute("set_transform", dict(path=self.selected_path(), values=values,
                     space=self.space.currentText().lower(), representation="euler", frame=self.document.frame,
                     time="frame" if self.time_mode.currentIndex() else "default"))
+
+    def preview_transform(self, data):
+        if data is None:
+            self.schedule_view()
+            return
+        before = Gf.Matrix4d(*[value for row in data['before'] for value in row])
+        after = Gf.Matrix4d(*[value for row in data['matrix'] for value in row])
+        delta = before.GetInverse() * after
+        root = self.document.stage.GetPrimAtPath(data['path'])
+        cache = UsdGeom.XformCache(Usd.TimeCode(self.document.frame))
+        skip = []
+        for prim in Usd.PrimRange(root):
+            xform = UsdGeom.Xformable(prim)
+            if not xform or any(prim.GetPath().HasPrefix(path) for path in skip):
+                continue
+            if prim != root and xform.GetResetXformStack():
+                skip.append(prim.GetPath())
+                continue
+            matrix = cache.GetLocalToWorldTransform(prim) * delta
+            path = str(prim.GetPath())
+            self.deltas[path + '.omni:xform'] = dict(path=path, attribute='omni:xform',
+                value=[list(row) for row in matrix], dtype='float64', lanes=16)
+        self.schedule_view(False, interactive=True)
 
     def edit_property(self, row):
         data = self.property_data[row]
@@ -609,6 +687,59 @@ class MainWindow(QMainWindow):
         material, ok = QInputDialog.getItem(self, "Bind material", "Material", materials, editable=False)
         if ok:
             self.execute("bind_scene_material", material, self.document.selection)
+
+    def open_render_view(self):
+        from .render_view import RenderView
+        if not getattr(self, 'render_view', None):
+            self.render_view = RenderView(self)
+        self.render_view.refresh_cameras()
+        self.render_view.show()
+        self.render_view.raise_()
+
+    def open_python_console(self):
+        from .python_console import PythonConsole
+        if not getattr(self, 'python_console', None):
+            self.python_console = PythonConsole(self)
+        self.python_console.show()
+        self.python_console.raise_()
+
+    def toggle_mcp(self):
+        bridge = getattr(self, 'mcp_bridge', None)
+        if bridge:
+            bridge.close()
+            bridge.deleteLater()
+            self.mcp_bridge = None
+            self.mcp_action.setText('Start MCP')
+            self.log.appendPlainText('MCP stopped.')
+        else:
+            from .mcp_bridge import EditorBridge
+            self.mcp_bridge = EditorBridge(self)
+            self.mcp_action.setText('Stop MCP')
+            self.log.appendPlainText('MCP enabled for this editor: ' + self.mcp_bridge.editor_id)
+            self.log.appendPlainText('Stdio client command: ' + str(Path(__file__).resolve().parents[4] / '.venv/bin/omnilab-mcp'))
+            self.log_dock.show()
+
+    def open_material_editor(self):
+        from pxr import UsdShade
+        from .material_editor import MaterialEditor
+        if not getattr(self, 'material_editor', None):
+            self.material_editor = MaterialEditor(self)
+        editor = self.material_editor
+        for path in self.document.selection:
+            prim = self.document.stage.GetPrimAtPath(path)
+            material = UsdShade.Material(prim)
+            if not material:
+                material, _ = UsdShade.MaterialBindingAPI(prim).ComputeBoundMaterial()
+            if material:
+                editor.open_material(material.GetPath())
+                break
+        if not editor.tabs.count():
+            for prim in self.document.stage.Traverse():
+                if prim.IsA(UsdShade.Material):
+                    editor.open_material(prim.GetPath())
+                    break
+        editor.show()
+        editor.raise_()
 
     def prim_menu(self, position):
         path = self.selected_path()
@@ -730,6 +861,12 @@ class MainWindow(QMainWindow):
         self.viewport.camera.orthographic = enabled
         self.schedule_view()
 
+    def navigation_changed(self):
+        self.cameras.blockSignals(True)
+        self.cameras.setCurrentIndex(max(0, self.cameras.findData(self.viewport.scene_camera_path)))
+        self.cameras.blockSignals(False)
+        self.schedule_view(False, interactive=True)
+
     def frame_selection(self, all_prims=False):
         self.viewport.scene_camera_path = ""
         self.viewport.camera.frame(self.document.bounds([] if all_prims else self.document.selection))
@@ -741,6 +878,7 @@ class MainWindow(QMainWindow):
             return
         self.document.frame = frame
         self.refresh_properties()
+        self.refresh_material_tabs()
         self.schedule_view()
 
     def toggle_play(self):
@@ -765,6 +903,8 @@ class MainWindow(QMainWindow):
 
     def schedule_view(self, snapshot=True, *, interactive=False):
         self.request += 1
+        self.viewport.depth_current = False
+        self.viewport.visible_purposes = {name for name, check in self.purposes.items() if check.isChecked()}
         # Camera-only motion may present an intermediate view while the newest
         # camera waits. Scene/settings/selection changes invalidate all old images.
         if not interactive or snapshot:
@@ -790,6 +930,7 @@ class MainWindow(QMainWindow):
                 self.snapshot = publish(self.document, Path(self.scratch.name) / str(self.snapshot_number), camera,
                     (w, h), self.mode.currentText(), self.samples.value(),
                     tuple(name for name, check in self.purposes.items() if check.isChecked()),
+                    aovs=('LdrColor', 'DistanceToCameraSD') if self.display.currentText() in ('Points', 'Wire over Shaded') else ('LdrColor',),
                     wireframe=self.display.currentText() in ("Shaded Wireframe", "Unlit Wireframe"),
                     wireframe_mode="emissive" if self.display.currentText() == "Unlit Wireframe" else "shaded")
                 self.deltas = {}
@@ -814,6 +955,9 @@ class MainWindow(QMainWindow):
         elif kind == "status":
             self.log.appendPlainText(message["text"])
             self.stats.setText(message["text"])
+        elif kind == 'loaded':
+            from omnilab.render.snapshot import retire_snapshots
+            retire_snapshots(self.scratch.name, message['path'])
         elif kind == "frame":
             self.bridge.send(dict(type="ack"))
             request = message["request"]
@@ -825,7 +969,7 @@ class MainWindow(QMainWindow):
                     or request < self.presented_request):
                 self.stale_frame_count += 1
                 return
-            self.viewport.set_frame(message)
+            self.viewport.set_frame(dict(message, depth_current=request == self.request))
             self.presented_request = request
             self.frame_count += 1
             self.stats.setText(f"ovRTX · {message['milliseconds']:.1f} ms · publish {self.publication_ms:.1f} ms")
@@ -849,11 +993,13 @@ class MainWindow(QMainWindow):
             self.bridge.send(dict(type="pick", request=self.request, rect=rect, additive=additive))
 
     def restart_renderer(self):
+        if getattr(self, "final_render_active", False):
+            raise ValueError("The viewport resumes after the final render finishes.")
         self.renderer_ready = False
         self.inflight_request = None
         self.submitted_request = None
         self.render_enabled = True
-        self.bridge.start()
+        self.bridge.start(self.document.view.get('renderer_config', {}))
         self.schedule_view()
 
     def stop_renderer(self):
@@ -876,35 +1022,15 @@ class MainWindow(QMainWindow):
         self.log_dock.show()
 
     def settings_catalog(self):
-        path = Path(__file__).resolve().parents[4] / "docs/settings/ovrtx-settings.csv"
-        import csv
-        if not path.exists():
-            raise ValueError("The generated settings catalog is available in the repository under docs/settings.")
-        with path.open() as stream:
-            rows = list(csv.reader(stream))
-        dialog = QDialog(self)
-        dialog.setWindowTitle("ovRTX settings catalog — declarations are not runtime certification")
-        dialog.resize(1200, 720)
-        layout = QVBoxLayout(dialog)
-        search = QLineEdit()
-        search.setPlaceholderText("Filter settings")
-        layout.addWidget(search)
-        table = QTableWidget(len(rows) - 1, len(rows[0]))
-        table.setHorizontalHeaderLabels(rows[0])
-        table.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        for r, row in enumerate(rows[1:]):
-            for c, value in enumerate(row):
-                table.setItem(r, c, QTableWidgetItem(value))
-        search.textChanged.connect(lambda text: [table.setRowHidden(r, text.lower() not in " ".join(row).lower()) for r, row in enumerate(rows[1:])])
-        layout.addWidget(table)
-        table.resizeColumnsToContents()
+        from .settings_editor import SettingsEditor
+        dialog = SettingsEditor(self)
         dialog.exec()
-
+        return
     def about(self):
         QMessageBox.information(self, "OmniLab preview", "Qt USD editor + native ovRTX worker.\n\n"
             "Alt+left drag: orbit; middle drag: pan; wheel: dolly.\nF: frame selection; Shift+F: frame all.\n"
             "W/E/R: translate/rotate/scale. Drag an axis; Escape cancels.\nClick or drag a rectangle to select; Ctrl adds.\n"
-            "Double-click properties to edit typed JSON.\n\nMaterial graph editors are P3/P4; graph conversion is P7.")
+            "Double-click properties to edit typed JSON.\n\nCtrl+M: MaterialX / MDL graph editor. F6: final RenderView.\nMoonRay graph conversion remains P7.")
 
     def closeEvent(self, event):
         if not self.discard_guard():
@@ -912,6 +1038,14 @@ class MainWindow(QMainWindow):
             return
         self.publish_timer.stop()
         self.play_timer.stop()
+        if getattr(self, 'material_editor', None):
+            self.material_editor.shutdown()
+        if getattr(self, "render_view", None):
+            self.render_view.shutdown()
+        if getattr(self, 'python_console', None):
+            self.python_console.close()
+        if getattr(self, 'mcp_bridge', None):
+            self.mcp_bridge.close()
         self.bridge.stop()
         self.scratch.cleanup()
         event.accept()

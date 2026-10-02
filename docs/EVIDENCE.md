@@ -50,6 +50,8 @@ The catalog keeps repeated property names in different schema classes. Consequen
 
 ## Validation performed and limits
 
+The bullets in this section describe the original settings-extraction work only. Subsequent native application tests and their commands are recorded in [P2–P5 status](P2_P5_STATUS.md), alongside the historical [P0–P2 status](P0_P2_STATUS.md).
+
 - Successfully parsed and inventoried all 28 RTX schema classes: 828 declarations / 826 unique names.
 - Extracted all 19 Python creation fields and 20 active public C configuration keys; retained the two retired slots as retired.
 - Included 56 standard Camera/UsdRender declarations, 76 documented settings and documented camera outputs by mode.

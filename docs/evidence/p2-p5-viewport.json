@@ -1,0 +1,28 @@
+{
+  "initial_frames": 1,
+  "picked": [
+    "/World/Sphere"
+  ],
+  "live_gizmo_before_commit": true,
+  "gizmo_single_undo": true,
+  "material_delta_without_reload": true,
+  "depth_tested_mesh_overlays": true,
+  "continuous_camera": {
+    "frames_during_drag": 29,
+    "drag_seconds": 1.0554696559993317,
+    "first_frame_ms": 74.18298199627316,
+    "median_frame_interval_ms": 32.98905499832472,
+    "final_camera_after_release_ms": 173.2399760003318,
+    "snapshot_reused": true
+  },
+  "persistent_worker_camera": true,
+  "cancel_inflight": true,
+  "cancel_seconds": 0.48846722199959913,
+  "restart_seconds": 3.1653518410021206,
+  "save_reopen_recovery": true,
+  "repeated_open": 3,
+  "snapshot_cache_bounded": true,
+  "frames": 35,
+  "stale_frames_rejected": 42,
+  "status": "passed"
+}

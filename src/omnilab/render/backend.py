@@ -7,10 +7,11 @@ import ovstage
 
 
 class Backend:
-    def __init__(self, log_path):
-        self.renderer = ovrtx.Renderer(config=ovrtx.RendererConfig(
-            log_file_path=str(log_path), active_cuda_gpus="0", selection_outline_enabled=True,
-            selection_outline_width=2))
+    def __init__(self, log_path, config=None):
+        options = dict(active_cuda_gpus='0', selection_outline_enabled=True, selection_outline_width=2)
+        options.update(config or {})
+        options['log_file_path'] = str(log_path)
+        self.renderer = ovrtx.Renderer(config=ovrtx.RendererConfig(**options))
         self.stage = None
         self.ordinal = 0
         self.snapshot = None
@@ -55,8 +56,8 @@ class Backend:
         self.ordinal += 1
         path = self.snapshot["camera"]
         self.write(path, "omni:xform", data["matrix"], np.float64, 16)
-        for key in ("horizontalAperture", "verticalAperture", "focalLength"):
-            self.write(path, key, data[key], np.float32)
+        for key in ("horizontalAperture", "verticalAperture", "focalLength", "horizontalApertureOffset", "verticalApertureOffset"):
+            self.write(path, key, data.get(key, 0.), np.float32)
         self.write(path, "clippingRange", data["clippingRange"], np.float32, 2)
         self.stage.advance_write_floor(self.ordinal, ovstage.Scope.ALL).wait()
         # The next step consumes this camera ordinal. Resetting the simulation
@@ -74,7 +75,6 @@ class Backend:
         for edit in edits:
             self.write(edit["path"], edit["attribute"], edit["value"], np.dtype(edit["dtype"]), edit["lanes"])
         self.stage.advance_write_floor(self.ordinal, ovstage.Scope.ALL).wait()
-        self.renderer.reset()
 
     def render(self, pick=None):
         if pick:

@@ -195,6 +195,22 @@ class StageEdits:
             self.undo = self.undo[-100:]
             self.redo.clear()
 
+    def set_camera_view(self, data):
+        from .usd_transform_pose import write_pose
+        from .usd_transform_lock import require_unlocked
+        camera = UsdGeom.Camera.Get(self.stage, data['path'])
+        if not camera:
+            raise ValueError('Choose an editable USD camera.')
+        require_unlocked(camera.GetPrim())
+        def action():
+            write_pose(camera.GetPrim(), data['values'], data.get('frame', 0),
+                       data.get('time', 'default'), 'world', 'matrix')
+            if data.get('apertures'):
+                time = Usd.TimeCode(data['frame']) if data.get('time') == 'frame' else Usd.TimeCode.Default()
+                for attr, value in zip((camera.GetHorizontalApertureAttr(), camera.GetVerticalApertureAttr()), data['apertures']):
+                    attr.Set(decode_value(Sdf.ValueTypeNames.Float, value), time)
+        return self.change('Navigate camera ' + data['path'], action)
+
     def set_transform(self, data):
         from .usd_joint_paths import split_joint_path
         joint = split_joint_path(data["path"])
@@ -362,6 +378,9 @@ class StageEdits:
             saved_rules = move[0].get("load_rules") if move and isinstance(move[0], dict) else None
             reverse = tuple(reversed(move[0])) if move and not isinstance(move[0], dict) else None
             previous_rules = self.stage.GetLoadRules()
+            previous_muted = tuple(self.stage.GetMutedLayers())
+            previous_target = self.layer.identifier
+            context = move[0] if move and isinstance(move[0], dict) else {}
             if reverse:
                 from .usd_namespace import moved_load_rules
                 rules = moved_load_rules(self.stage, *reverse)
@@ -372,15 +391,24 @@ class StageEdits:
                             raise ValueError("USD could not restore the layer.")
                 if reverse or saved_rules is not None:
                     self.stage.SetLoadRules(rules if reverse else saved_rules)
+                if 'muted_layers' in context:
+                    self.restore_muted_layers(context['muted_layers'])
+                if 'edit_target' in context:
+                    layer_target = Sdf.Layer.Find(context['edit_target'])
+                    if layer_target in self.stage.GetLayerStack():
+                        self.stage.SetEditTarget(layer_target)
             except Exception:
                 with Sdf.ChangeBlock():
                     for item, text in zip(layers, current):
                         item.ImportFromString(text)
                 self.stage.SetLoadRules(previous_rules)
+                self.restore_muted_layers(previous_muted)
                 raise
             source.pop()
             target.append((label, layer, current if isinstance(layer, tuple) else current[0],
-                           *([reverse] if reverse else [{"load_rules": previous_rules}] if saved_rules is not None else [])))
+                           *([reverse] if reverse else [dict(load_rules=previous_rules,
+                               **(dict(muted_layers=previous_muted, edit_target=previous_target) if 'muted_layers' in context else {}))]
+                              if saved_rules is not None else [])))
             self.ensure_edit_target()
             return reverse
 

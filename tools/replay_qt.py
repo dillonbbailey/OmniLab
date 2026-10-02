@@ -61,8 +61,16 @@ def main():
         # A real manipulator drag commits exactly one document history entry.
         axis, start, end, size = window.viewport.handles[0]
         undo_count = len(window.document.edits.undo)
+        before_pixels = bytes(window.viewport.image.constBits())
+        before_layer = window.document.stage.GetRootLayer().ExportToString()
+        before_snapshot = window.snapshot['path']
         QTest.mousePress(window.viewport, Qt.LeftButton, Qt.NoModifier, end.toPoint())
         QTest.mouseMove(window.viewport, end.toPoint() + QPoint(55, 0), 20)
+        settle()
+        assert window.document.stage.GetRootLayer().ExportToString() == before_layer
+        assert window.snapshot['path'] == before_snapshot
+        assert bytes(window.viewport.image.constBits()) != before_pixels
+        report['live_gizmo_before_commit'] = True
         QTest.mouseRelease(window.viewport, Qt.LeftButton, Qt.NoModifier, end.toPoint() + QPoint(55, 0))
         settle()
         assert len(window.document.edits.undo) == undo_count + 1
@@ -78,6 +86,18 @@ def main():
         assert window.snapshot['path'] == snapshot
         report['material_delta_without_reload'] = True
         window.grab().save(str(output / '03-material-edit.png'))
+        # Frontend geometry overlays use the native metric distance AOV.
+        window.execute('convert_to_mesh', '/World/Cube')
+        for display in ('Wire over Shaded', 'Points'):
+            window.display.setCurrentText(display)
+            settle()
+            assert window.viewport.depth is not None and window.viewport.depth_current
+            assert window.viewport._overlay_budget < 100000
+            window.grab().save(str(output / ('overlay-' + display.replace(' ', '-').lower() + '.png')))
+        report['depth_tested_mesh_overlays'] = True
+        window.display.setCurrentText('Shaded')
+        window.execute('restore')
+        settle()
         # Continuous real mouse motion must present new frames before release.
         pid = window.bridge.process.pid
         snapshot = window.snapshot['path']
@@ -137,6 +157,8 @@ def main():
             window.install_document(Document.open(output / 'scene.omnilab'))
             settle()
         report['repeated_open'] = 3
+        assert len([p for p in Path(window.scratch.name).iterdir() if p.name.isdigit()]) <= 1
+        report['snapshot_cache_bounded'] = True
         window.grab().save(str(output / '04-recovered.png'))
         report['frames'] = window.frame_count
         report['stale_frames_rejected'] = window.stale_frame_count

@@ -8,15 +8,21 @@ dependencies = [
     "usd-core==26.8",
     "numpy==2.2.6",
     "pillow==12.1.1",
+    "materialx==1.39.5",
+    "openimageio==3.1.18.0",
 ]
 
 [project.optional-dependencies]
 rtx = ["ovrtx==0.5.0.377615", "ovstage==0.2.0.377349"]
 dev = ["pytest==8.4.2"]
+mcp = [
+    "mcp==1.30.0",
+]
 
 [project.scripts]
 omnilab = "omnilab.app:main"
 omnilab-probe = "omnilab.probe:main"
+omnilab-mcp = "omnilab.automation.mcp_server:main"
 
 [build-system]
 requires = ["hatchling"]
