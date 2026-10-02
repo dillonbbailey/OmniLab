@@ -1,6 +1,6 @@
 # Evidence and reproduction
 
-Research date: 2026-10-02. The user chose Qt first and standalone ovUI as a second frontend. Only planning documents, a settings extraction script and its generated outputs were created in OmniLab. Lunatic and the installed NVIDIA libraries were read without modification.
+Research date: 2026-10-02. The user chose Qt first and standalone ovUI as a second frontend. The initial research produced the plan and settings catalog. Implementation followed in the same session; [P0–P2 status](P0_P2_STATUS.md), [runtime manifest](evidence/p0-runtime.json) and [desktop replay](evidence/qt-replay.json) record the new GPU evidence. The source Lunatic checkout and external SDK installations were not modified.
 
 ## Local sources
 

@@ -1,0 +1,219 @@
+{
+  "platform": "Linux-7.0.0-34-generic-x86_64-with-glibc2.39",
+  "python": "3.12.3",
+  "packages": {
+    "ovrtx": "0.5.0.377615",
+    "ovstage": "0.2.0.377349",
+    "usd-core": "26.8",
+    "PySide6-Essentials": "6.8.3",
+    "numpy": "2.2.6"
+  },
+  "gpu": "NVIDIA RTX PRO 6000 Blackwell Workstation Edition, 595.91.07, 97887 MiB",
+  "checks": {
+    "materialx_sdr_registry": false,
+    "RealTimePathTracing": {
+      "status": "passed",
+      "load_ms": 9.66417300151079,
+      "render_ms": 4.654012998798862,
+      "outputs": {
+        "LdrColor": {
+          "shape": [
+            400,
+            640,
+            4
+          ],
+          "dtype": "uint8",
+          "finite": true
+        },
+        "HdrColor": {
+          "shape": [
+            400,
+            640,
+            4
+          ],
+          "dtype": "float16",
+          "finite": true
+        },
+        "Depth": {
+          "shape": [
+            400,
+            640,
+            1
+          ],
+          "dtype": "float32",
+          "finite": true
+        }
+      },
+      "hits": [
+        {
+          "path": "/World/Floor",
+          "position": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "path": "/World/Sphere",
+          "position": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      ],
+      "color_std": 32.344150775493425,
+      "scope": "LdrColor + HdrColor + Depth"
+    },
+    "camera_delta": {
+      "mean_pixel_difference": 5.849923828125
+    },
+    "PathTracing": {
+      "status": "passed",
+      "load_ms": 6.987681997998152,
+      "render_ms": 123.12980500064441,
+      "outputs": {
+        "LdrColor": {
+          "shape": [
+            400,
+            640,
+            4
+          ],
+          "dtype": "uint8",
+          "finite": true
+        },
+        "HdrColor": {
+          "shape": [
+            400,
+            640,
+            4
+          ],
+          "dtype": "float16",
+          "finite": true
+        },
+        "Depth": {
+          "shape": [
+            400,
+            640,
+            1
+          ],
+          "dtype": "float32",
+          "finite": true
+        }
+      },
+      "hits": [
+        {
+          "path": "/World/Floor",
+          "position": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "path": "/World/Sphere",
+          "position": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      ],
+      "color_std": 31.53427886508255,
+      "scope": "LdrColor + HdrColor + Depth"
+    },
+    "MinimalRendering": {
+      "status": "passed",
+      "load_ms": 18.97556599942618,
+      "render_ms": 451.25874600125826,
+      "outputs": {
+        "LdrColor": {
+          "shape": [
+            400,
+            640,
+            4
+          ],
+          "dtype": "uint8",
+          "finite": true
+        }
+      },
+      "hits": [
+        {
+          "path": "/World/Floor",
+          "position": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "path": "/World/Sphere",
+          "position": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      ],
+      "color_std": 84.53784203203867,
+      "scope": "Fresh renderer; LdrColor only"
+    },
+    "openpbr": {
+      "status": "passed",
+      "render_ms": 3.5823479993268847,
+      "authored_pixel_rgb": [
+        232.55621301775147,
+        98.14201183431953,
+        43.585798816568044
+      ],
+      "delta_pixel_rgb": [
+        39.96449704142012,
+        232.93491124260356,
+        76.18934911242603
+      ],
+      "delta_mean_pixel_difference": 6.396166015625,
+      "saved_color": [
+        0.800000011920929,
+        0.07000000029802322,
+        0.019999999552965164
+      ],
+      "undone_color": [
+        0.07999999821186066,
+        0.3199999928474426,
+        0.6499999761581421
+      ]
+    },
+    "mdl": {
+      "status": "passed",
+      "render_ms": 3.3636900006968062,
+      "authored_pixel_rgb": [
+        239.96449704142012,
+        122.92899408284023,
+        61.18343195266272
+      ],
+      "delta_pixel_rgb": [
+        56.61538461538461,
+        240.72781065088756,
+        101.11242603550296
+      ],
+      "delta_mean_pixel_difference": 6.302705078125,
+      "saved_color": [
+        0.800000011920929,
+        0.07000000029802322,
+        0.019999999552965164
+      ],
+      "undone_color": [
+        0.05999999865889549,
+        0.3499999940395355,
+        0.800000011920929
+      ]
+    }
+  },
+  "limitations": [
+    "PT intermediate checkpoints are unverified; Cancel terminates the owned worker.",
+    "The authoring usd-core build has no MaterialX Sdr node catalog; graph UI is P3.",
+    "MinimalRendering + HdrColor + LdrColor returned stale color with an SDK tonemap error; excluded from the UI.",
+    "The SDK reports a nonfatal MaterialX cache permission error under /usr/bin/cache with system Python."
+  ],
+  "renderer_init_seconds": 1.796267498000816
+}

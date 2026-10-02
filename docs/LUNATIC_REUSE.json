@@ -1,0 +1,224 @@
+{
+  "source_repo": "/home/dillonb/DEV/astra_tests/moonray_tests/lunatic",
+  "source_head": "5b9421a3b1866ea55e46c273d7ee3a46440f5dd5",
+  "note": "Current working-tree sources. MoonRay graph and mesh-light methods are deferred; schema discovery uses installed OpenUSD only. Legacy preview-camera locks remain readable. Parity tests use the new import prefix; the MoonRay default-light override test is excluded because that rendering feature is not ported.",
+  "files": [
+    {
+      "source": "moonray_editor/usd_editing.py",
+      "sha256": "f7e84ddec5bbf60af70df457a3add7c4ae65d37fe0733fb71f8102510c3a62bc",
+      "destination": "src/omnilab/usd/usd_editing.py",
+      "adapted": true
+    },
+    {
+      "source": "moonray_editor/usd_project.py",
+      "sha256": "e3d4686819d21a3e918b7c3fbe94af37a26a3f9def270ab99a8063210ea53a7b",
+      "destination": "src/omnilab/usd/usd_project.py",
+      "adapted": false
+    },
+    {
+      "source": "moonray_editor/usd_export.py",
+      "sha256": "bccd2dc7ec1e8f30f4d361d1bfcef811d81f8c56fcd2c4f021b74bb3774a82fa",
+      "destination": "src/omnilab/usd/usd_export.py",
+      "adapted": false
+    },
+    {
+      "source": "moonray_editor/usd_layers.py",
+      "sha256": "c8b68abf5894a940d51ae8b674e5e4eb61bc42480c7e1ae1d468d2b20df7c7b2",
+      "destination": "src/omnilab/usd/usd_layers.py",
+      "adapted": false
+    },
+    {
+      "source": "moonray_editor/usd_layer_save.py",
+      "sha256": "e717b610643aba635bf5c9dd05a1f97a220cf4f0971ae54b209e324d4fbefd71",
+      "destination": "src/omnilab/usd/usd_layer_save.py",
+      "adapted": false
+    },
+    {
+      "source": "moonray_editor/usd_new_stage.py",
+      "sha256": "d5396f5b112f1b066010e33792b9d3e29aac247377303e4fa0f373481af405f2",
+      "destination": "src/omnilab/usd/usd_new_stage.py",
+      "adapted": false
+    },
+    {
+      "source": "moonray_editor/stage_metadata.py",
+      "sha256": "690e525b09e89a11a6abdef11777907c895bf6ee7d170cc6aa1e7abe82b69670",
+      "destination": "src/omnilab/usd/stage_metadata.py",
+      "adapted": false
+    },
+    {
+      "source": "moonray_editor/usd_stage_metadata.py",
+      "sha256": "7afa3eef618ad98611a5015624b64e0e68b44622265b8fba5052d0d1e85381a5",
+      "destination": "src/omnilab/usd/usd_stage_metadata.py",
+      "adapted": false
+    },
+    {
+      "source": "moonray_editor/usd_composition.py",
+      "sha256": "7409dc1cf50c0b5eb1b2192f566b6cd817124016875c3154005b479dfae3562b",
+      "destination": "src/omnilab/usd/usd_composition.py",
+      "adapted": false
+    },
+    {
+      "source": "moonray_editor/usd_composition_inspection.py",
+      "sha256": "de4262d02ce70e78ed6a4c10dd7d6713bda7dfdfa73d54042c1ef8ab70ed5e5d",
+      "destination": "src/omnilab/usd/usd_composition_inspection.py",
+      "adapted": false
+    },
+    {
+      "source": "moonray_editor/usd_namespace.py",
+      "sha256": "1727296610e827e8fba002bff538b548dc0f3872f8779d7ddfb85a72e218ed89",
+      "destination": "src/omnilab/usd/usd_namespace.py",
+      "adapted": true
+    },
+    {
+      "source": "moonray_editor/usd_duplicate.py",
+      "sha256": "5e4aa87d65b000b51a16021da1d3d039e58d7263dbf11ef74eab35041dd06966",
+      "destination": "src/omnilab/usd/usd_duplicate.py",
+      "adapted": false
+    },
+    {
+      "source": "moonray_editor/usd_variants.py",
+      "sha256": "48c223194cc20442c4941c282bb2714017d7cdbaf7dc42c2563d69da9e3a7527",
+      "destination": "src/omnilab/usd/usd_variants.py",
+      "adapted": false
+    },
+    {
+      "source": "moonray_editor/usd_transform_lock.py",
+      "sha256": "a6fc5fe6f40d0d691624352e993c0dae6b2bd236531243176e444bfd9d509f79",
+      "destination": "src/omnilab/usd/usd_transform_lock.py",
+      "adapted": false
+    },
+    {
+      "source": "moonray_editor/usd_transforms.py",
+      "sha256": "1c9c786ad6a89b3b6de99ff7e013865f5260cf8f4378baadb72627a9652d3cc6",
+      "destination": "src/omnilab/usd/usd_transforms.py",
+      "adapted": false
+    },
+    {
+      "source": "moonray_editor/usd_transform_pose.py",
+      "sha256": "38a829241be092b3acb1dd0a1644a8dd4768a161908eb19909d2f44183b7c0b6",
+      "destination": "src/omnilab/usd/usd_transform_pose.py",
+      "adapted": false
+    },
+    {
+      "source": "moonray_editor/usd_skeleton.py",
+      "sha256": "4acd00b816c30b4dc20f72cb2c110b7a6f73d0bb040150ff3c47edf23941616c",
+      "destination": "src/omnilab/usd/usd_skeleton.py",
+      "adapted": false
+    },
+    {
+      "source": "moonray_editor/usd_joint_paths.py",
+      "sha256": "f5ffa07d3e6cb4ab9cd62f452003607cbf5539527e1734cef74e5434386f22a2",
+      "destination": "src/omnilab/usd/usd_joint_paths.py",
+      "adapted": false
+    },
+    {
+      "source": "moonray_editor/usd_inspection.py",
+      "sha256": "b421054cd9662abc153cb1bd1b3de89b0b4465ada31302e8c5b66866003d154e",
+      "destination": "src/omnilab/usd/usd_inspection.py",
+      "adapted": false
+    },
+    {
+      "source": "moonray_editor/usd_hierarchy.py",
+      "sha256": "2508acce6a728d135c808f734be5b9868a8c1edf836f284b375ab88d3d15c170",
+      "destination": "src/omnilab/usd/usd_hierarchy.py",
+      "adapted": false
+    },
+    {
+      "source": "moonray_editor/usd_purposes.py",
+      "sha256": "80f4c51a32d47e60daad42bd67d9a11ae348ca80cfc179ae130f465ab4596c14",
+      "destination": "src/omnilab/usd/usd_purposes.py",
+      "adapted": false
+    },
+    {
+      "source": "moonray_editor/usd_material_bindings.py",
+      "sha256": "b5b7477bf88579343ff52dc99b4550047ab0eeaa0e074e4052a4fd99548653e9",
+      "destination": "src/omnilab/usd/usd_material_bindings.py",
+      "adapted": true
+    },
+    {
+      "source": "moonray_editor/usd_schemas.py",
+      "sha256": "9730b596f19d15769b7900723ad7be320e06fd341df10eebfe65b781c8b23916",
+      "destination": "src/omnilab/usd/usd_schemas.py",
+      "adapted": true
+    },
+    {
+      "source": "moonray_editor/usd_composition_tree.py",
+      "sha256": "eb85379036da3ffbf734c063c92f44ee64e702bb65ae14386219ed8c0922cfb3",
+      "destination": "src/omnilab/usd/usd_composition_tree.py",
+      "adapted": false
+    },
+    {
+      "source": "tests/test_usd_composition.py",
+      "sha256": "1cd236fde639b20ce5c9ec558d2d897d3f0de5624332287bb6fbc30f19a53a6b",
+      "destination": "tests/parity/test_usd_composition.py",
+      "adapted": true
+    },
+    {
+      "source": "tests/test_usd_composition_inspection.py",
+      "sha256": "c15eb14bd1fa102b245c7a3085e10f207f631666440c7bc105cef9d2c08be2b3",
+      "destination": "tests/parity/test_usd_composition_inspection.py",
+      "adapted": true
+    },
+    {
+      "source": "tests/test_usd_duplicate.py",
+      "sha256": "5cda2c34e45574ebdd91850b45c73ecd27acd5b2d0b730eaf2a7783291490a1a",
+      "destination": "tests/parity/test_usd_duplicate.py",
+      "adapted": true
+    },
+    {
+      "source": "tests/test_usd_export.py",
+      "sha256": "285cc7a8d9d98ffaad68fb81a3d264426292fa471ff83c8fcfe57de750a49696",
+      "destination": "tests/parity/test_usd_export.py",
+      "adapted": true
+    },
+    {
+      "source": "tests/test_usd_layers.py",
+      "sha256": "693ea01e3e35ea92658bba3fa24303b513e46b1a36ceb0c3b864884bc87a7c8f",
+      "destination": "tests/parity/test_usd_layers.py",
+      "adapted": true
+    },
+    {
+      "source": "tests/test_usd_new_stage.py",
+      "sha256": "854f804beb269f7cd09d48ed0cd40b1cf6163814b3950cb167f62c452642d2fd",
+      "destination": "tests/parity/test_usd_new_stage.py",
+      "adapted": true
+    },
+    {
+      "source": "tests/test_usd_project.py",
+      "sha256": "0b7ef5b91d389a3ec045184efbe38f3af3a51a0e9c8e589f775716ea585a3269",
+      "destination": "tests/parity/test_usd_project.py",
+      "adapted": true
+    },
+    {
+      "source": "tests/test_usd_stage_metadata.py",
+      "sha256": "6fa2d15bc527ef9d23dfc24de95873501b5257522c0c44b980428376c6128a3a",
+      "destination": "tests/parity/test_usd_stage_metadata.py",
+      "adapted": true
+    },
+    {
+      "source": "tests/test_usd_transform_pose.py",
+      "sha256": "f1a2d7423a9746e75bd9a69c2dc6b091534ddff9832673ffa30ea78575cd746f",
+      "destination": "tests/parity/test_usd_transform_pose.py",
+      "adapted": true
+    },
+    {
+      "source": "tests/test_usd_transforms.py",
+      "sha256": "9c9ef97c9199f8f2659c023b9cc400d6908076924445a48396ab69bad3136cb2",
+      "destination": "tests/parity/test_usd_transforms.py",
+      "adapted": true
+    },
+    {
+      "source": "tests/test_usd_variants.py",
+      "sha256": "09d4653c42894ca8a6d8fdf8f1977e855ef6992fd724e844c056cb7e2a8e2a04",
+      "destination": "tests/parity/test_usd_variants.py",
+      "adapted": true
+    },
+    {
+      "source": "moonray_editor/usd_materials.py",
+      "sha256": "4e0fafbd7fc11b7e89faa7c30fef166c75cc846ae7711c87215ca3c35a6ff494",
+      "destination": "src/omnilab/usd/usd_material_bindings.py",
+      "adapted": true,
+      "note": "Only can_bind_material and prepare_material_binding reused."
+    }
+  ]
+}

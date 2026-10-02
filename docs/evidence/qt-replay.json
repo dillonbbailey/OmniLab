@@ -1,0 +1,17 @@
+{
+  "initial_frames": 1,
+  "picked": [
+    "/World/Sphere"
+  ],
+  "gizmo_single_undo": true,
+  "material_delta_without_reload": true,
+  "persistent_worker_camera": true,
+  "cancel_inflight": true,
+  "cancel_seconds": 0.38260846400226,
+  "restart_seconds": 2.812195726997743,
+  "save_reopen_recovery": true,
+  "repeated_open": 3,
+  "frames": 13,
+  "stale_frames_rejected": 32,
+  "status": "passed"
+}
