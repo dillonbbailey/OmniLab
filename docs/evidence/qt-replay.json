@@ -5,13 +5,21 @@
   ],
   "gizmo_single_undo": true,
   "material_delta_without_reload": true,
+  "continuous_camera": {
+    "frames_during_drag": 27,
+    "drag_seconds": 1.0556837119984266,
+    "first_frame_ms": 91.29415599818458,
+    "median_frame_interval_ms": 35.74140050113783,
+    "final_camera_after_release_ms": 106.60946400093962,
+    "snapshot_reused": true
+  },
   "persistent_worker_camera": true,
   "cancel_inflight": true,
-  "cancel_seconds": 0.38260846400226,
-  "restart_seconds": 2.812195726997743,
+  "cancel_seconds": 0.32310559199686395,
+  "restart_seconds": 2.9281136489989876,
   "save_reopen_recovery": true,
   "repeated_open": 3,
-  "frames": 13,
+  "frames": 29,
   "stale_frames_rejected": 32,
   "status": "passed"
 }

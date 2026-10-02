@@ -59,7 +59,8 @@ class Backend:
             self.write(path, key, data[key], np.float32)
         self.write(path, "clippingRange", data["clippingRange"], np.float32, 2)
         self.stage.advance_write_floor(self.ordinal, ovstage.Scope.ALL).wait()
-        self.renderer.reset()
+        # The next step consumes this camera ordinal. Resetting the simulation
+        # clock on every mouse move interrupts the renderer's temporal history.
 
     def set_selection(self, paths):
         if self.selection:

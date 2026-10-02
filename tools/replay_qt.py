@@ -6,6 +6,7 @@ Uses the current desktop, or QT_QPA_PLATFORM=offscreen for headless verification
 import json
 from pathlib import Path
 import shutil
+import statistics
 import time
 
 from PySide6.QtCore import Qt, QPoint
@@ -77,13 +78,34 @@ def main():
         assert window.snapshot['path'] == snapshot
         report['material_delta_without_reload'] = True
         window.grab().save(str(output / '03-material-edit.png'))
-        # Rapid camera changes invalidate in-flight images and preserve the same worker.
+        # Continuous real mouse motion must present new frames before release.
         pid = window.bridge.process.pid
-        for i in range(20):
-            window.viewport.camera.orbit(2, .2)
-            window.schedule_view(False)
-            app.processEvents()
-            QTest.qWait(5)
+        snapshot = window.snapshot['path']
+        updates = []
+        before_drag = window.request
+        def record_frame(event):
+            if (event['type'] == 'frame' and event['request'] == window.presented_request
+                    and event['request'] > before_drag):
+                updates.append(time.monotonic())
+        window.bridge.event.connect(record_frame)
+        start = QPoint(window.viewport.width() // 2, window.viewport.height() // 2)
+        drag_started = time.monotonic()
+        QTest.mousePress(window.viewport, Qt.LeftButton, Qt.AltModifier, start)
+        for i in range(120):
+            QTest.mouseMove(window.viewport, start + QPoint(i * 2, (i % 20) - 10))
+            QTest.qWait(8)
+        frames_during_drag = len(updates)
+        release = time.monotonic()
+        QTest.mouseRelease(window.viewport, Qt.LeftButton, Qt.AltModifier, start + QPoint(238, 9))
+        rendered()
+        final_latency = time.monotonic() - release
+        window.bridge.event.disconnect(record_frame)
+        assert frames_during_drag >= 3, 'Camera rendering starved during continuous input'
+        assert window.snapshot['path'] == snapshot
+        report['continuous_camera'] = dict(frames_during_drag=frames_during_drag,
+            drag_seconds=release - drag_started, first_frame_ms=(updates[0] - drag_started) * 1000,
+            median_frame_interval_ms=statistics.median((b - a) * 1000 for a, b in zip(updates, updates[1:])),
+            final_camera_after_release_ms=final_latency * 1000, snapshot_reused=True)
         settle()
         assert window.bridge.process.pid == pid
         report['persistent_worker_camera'] = True

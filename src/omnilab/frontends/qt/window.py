@@ -68,6 +68,9 @@ class MainWindow(QMainWindow):
         self.renderer_ready = False
         self.request = 0
         self.presented_request = -1
+        self.submitted_request = None
+        self.inflight_request = None
+        self.frame_floor = 0
         self.snapshot = None
         self.deltas = {}
         self.snapshot_dirty = True
@@ -78,7 +81,8 @@ class MainWindow(QMainWindow):
         self.stale_frame_count = 0
         self.publish_timer = QTimer(self)
         self.publish_timer.setSingleShot(True)
-        self.publish_timer.setInterval(80)
+        self.publish_timer.setInterval(16)
+        self.publish_timer.setTimerType(Qt.PreciseTimer)
         self.publish_timer.timeout.connect(self.flush_view)
         self.play_timer = QTimer(self)
         self.play_timer.timeout.connect(self.play_step)
@@ -189,7 +193,7 @@ class MainWindow(QMainWindow):
         self.viewport = Viewport()
         center_layout.addWidget(self.viewport, 1)
         splitter.addWidget(center)
-        self.viewport.cameraChanged.connect(lambda: self.schedule_view(False))
+        self.viewport.cameraChanged.connect(lambda: self.schedule_view(False, interactive=True))
         self.viewport.resized.connect(lambda: self.schedule_view())
         self.viewport.pickRequested.connect(self.pick)
         self.viewport.transformCommitted.connect(lambda data: self.safe(lambda: self.execute("set_transform", data)))
@@ -759,15 +763,22 @@ class MainWindow(QMainWindow):
         if hasattr(self, "viewport"):
             self.schedule_view()
 
-    def schedule_view(self, snapshot=True):
-        self.request += 1  # Invalidate old frames immediately, before the debounce.
+    def schedule_view(self, snapshot=True, *, interactive=False):
+        self.request += 1
+        # Camera-only motion may present an intermediate view while the newest
+        # camera waits. Scene/settings/selection changes invalidate all old images.
+        if not interactive or snapshot:
+            self.frame_floor = self.request
         self.snapshot_dirty = self.snapshot_dirty or snapshot
         self.viewport.message = "Updating viewport…" if self.render_enabled else "Renderer stopped"
         self.viewport.update()
-        self.publish_timer.start()
+        if self.render_enabled and not self.publish_timer.isActive():
+            self.publish_timer.start()
 
     def flush_view(self):
-        if not self.render_enabled or not self.renderer_ready:
+        self.publish_timer.stop()
+        if (not self.render_enabled or not self.renderer_ready or self.inflight_request is not None
+                or self.submitted_request == self.request):
             return
         try:
             camera = self.viewport.render_camera()
@@ -786,6 +797,8 @@ class MainWindow(QMainWindow):
                 self.snapshot_dirty = False
             self.bridge.send(dict(type="view", request=self.request, snapshot=self.snapshot,
                                   camera=camera_payload(camera), deltas=dict(self.deltas), selection=[p for p in self.document.selection if p != "/"]))
+            self.submitted_request = self.request
+            self.inflight_request = self.request
         except Exception as exc:
             self.viewport.message = "Publication failed; see Activity log"
             self.log.appendPlainText(str(exc))
@@ -803,14 +816,20 @@ class MainWindow(QMainWindow):
             self.stats.setText(message["text"])
         elif kind == "frame":
             self.bridge.send(dict(type="ack"))
-            if message["request"] != self.request:
+            request = message["request"]
+            if request == self.inflight_request:
+                self.inflight_request = None
+            if self.request != self.submitted_request and not self.publish_timer.isActive():
+                self.publish_timer.start()
+            if (request != self.submitted_request or request < self.frame_floor
+                    or request < self.presented_request):
                 self.stale_frame_count += 1
                 return
             self.viewport.set_frame(message)
-            self.presented_request = self.request
+            self.presented_request = request
             self.frame_count += 1
             self.stats.setText(f"ovRTX · {message['milliseconds']:.1f} ms · publish {self.publication_ms:.1f} ms")
-            if message["hits"] is not None:
+            if message["hits"] is not None and request == self.request:
                 paths = [hit["path"] for hit in message["hits"]]
                 self.document.select((self.document.selection if message["additive"] else []) + paths)
                 self.refresh_tree()
@@ -818,6 +837,7 @@ class MainWindow(QMainWindow):
                 self.schedule_view(False)
         elif kind in ("error", "stopped"):
             self.renderer_ready = False
+            self.inflight_request = None
             self.stats.setText("Renderer stopped — use View → Restart renderer")
             self.viewport.message = self.stats.text()
             self.log.appendPlainText(message.get("text", self.stats.text()))
@@ -830,6 +850,8 @@ class MainWindow(QMainWindow):
 
     def restart_renderer(self):
         self.renderer_ready = False
+        self.inflight_request = None
+        self.submitted_request = None
         self.render_enabled = True
         self.bridge.start()
         self.schedule_view()
@@ -837,6 +859,8 @@ class MainWindow(QMainWindow):
     def stop_renderer(self):
         self.render_enabled = False
         self.renderer_ready = False
+        self.inflight_request = None
+        self.publish_timer.stop()
         self.play_timer.stop()
         self.play_button.setText("Play")
         self.bridge.stop()
