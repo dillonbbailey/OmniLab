@@ -1,12 +1,29 @@
 {
+  "difference_units": "mean absolute RGB difference, 0-255 channels",
   "RealTimePathTracing": {
-    "wireframe_difference": 10.58098479061046,
-    "restored_shaded_difference": 0.06456351135495521
+    "Shaded Wireframe": {
+      "difference_from_shaded": 14.109932981457046,
+      "project_display_restored": true
+    },
+    "Unlit Wireframe": {
+      "difference_from_shaded": 15.223637636872931,
+      "project_display_restored": true
+    },
+    "difference_between_wireframe_modes": 2.4013172211033176,
+    "restored_shaded_difference": 0.09079102715466351
   },
   "PathTracing": {
-    "wireframe_difference": 10.688726647683866,
-    "restored_shaded_difference": 0.05498819362455726
+    "Shaded Wireframe": {
+      "difference_from_shaded": 14.261141977452137,
+      "project_display_restored": true
+    },
+    "Unlit Wireframe": {
+      "difference_from_shaded": 15.199049702525638,
+      "project_display_restored": true
+    },
+    "difference_between_wireframe_modes": 2.2197698914276454,
+    "restored_shaded_difference": 0.07253339352269833
   },
-  "project_display_restored": true,
+  "legacy_wireframe_restored_as_shaded": true,
   "status": "passed"
 }

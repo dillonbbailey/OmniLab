@@ -23,7 +23,7 @@ The editor supports stage/layer inspection, typed property and transform editing
 
 Alt+left drag orbits, middle drag pans, and the wheel dollies. F frames selection; Shift+F frames the scene. W/E/R select translate/rotate/scale; drag an axis, or Escape to cancel. Click/rectangle selection uses native picking. View → Restart renderer recovers a stopped worker without discarding edits.
 
-Choose Viewport → Display → Wireframe for native ovRTX wireframe in either RTPT or PT. It shows triangulated render geometry, including implicit spheres and cubes. `.omnilab` projects retain the display mode.
+In Viewport → Display, choose **Shaded Wireframe** for edges shaded by materials and lighting, or **Unlit Wireframe** for unlit lines. Both use native ovRTX in RTPT or PT and show triangulated render geometry, including implicit spheres and cubes. `.omnilab` projects retain the display mode; older projects saved as Wireframe reopen as Shaded Wireframe.
 
 ![OmniLab Qt editor with native ovRTX output](docs/evidence/qt-editor.png)
 

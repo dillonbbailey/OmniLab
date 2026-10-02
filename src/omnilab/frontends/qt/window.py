@@ -269,8 +269,8 @@ class MainWindow(QMainWindow):
         guides.toggled.connect(lambda value: self.overlay("guides", value))
         r_layout.addRow(guides)
         self.display = QComboBox()
-        self.display.addItems(["Shaded", "Wireframe", "Points"])
-        self.display.setToolTip("Wireframe uses native ovRTX triangulated edges. Points uses a CPU mesh overlay without depth occlusion.")
+        self.display.addItems(["Shaded", "Shaded Wireframe", "Unlit Wireframe", "Points"])
+        self.display.setToolTip("Shaded Wireframe uses material and lighting on the edges; Unlit Wireframe uses unlit lines. Both show native ovRTX triangulated edges. Points uses a CPU mesh overlay without depth occlusion.")
         self.display.currentTextChanged.connect(self.display_changed)
         r_layout.addRow("Display", self.display)
         for text, callback in (("Restart renderer", self.restart_renderer), ("Stop renderer", self.stop_renderer), ("Inspect all ovRTX settings", self.settings_catalog)):
@@ -345,7 +345,10 @@ class MainWindow(QMainWindow):
         mode = preferences.get("mode", MODES[0])
         self.mode.setCurrentText(mode if mode in MODES[:2] else MODES[0])
         self.samples.setValue(int(preferences.get("samples", 16)))
-        self.display.setCurrentIndex(max(0, self.display.findText(preferences.get("display", "Shaded"))))
+        display = preferences.get("display", "Shaded")
+        if display == "Wireframe":  # Projects saved before the two wireframe choices.
+            display = "Shaded Wireframe"
+        self.display.setCurrentIndex(max(0, self.display.findText(display)))
         self.ortho.setChecked(self.viewport.camera.orthographic)
         for name, check in self.purposes.items():
             check.setChecked(name in preferences.get("purposes", ("default", "render")))
@@ -776,7 +779,8 @@ class MainWindow(QMainWindow):
                 self.snapshot = publish(self.document, Path(self.scratch.name) / str(self.snapshot_number), camera,
                     (w, h), self.mode.currentText(), self.samples.value(),
                     tuple(name for name, check in self.purposes.items() if check.isChecked()),
-                    wireframe=self.display.currentText() == "Wireframe")
+                    wireframe=self.display.currentText() in ("Shaded Wireframe", "Unlit Wireframe"),
+                    wireframe_mode="emissive" if self.display.currentText() == "Unlit Wireframe" else "shaded")
                 self.deltas = {}
                 self.publication_ms = (time.perf_counter() - started) * 1000
                 self.snapshot_dirty = False

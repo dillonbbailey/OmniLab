@@ -30,9 +30,13 @@ The [desktop replay](evidence/qt-replay.json) passed on the actual desktop. It s
 
 The automated CPU suite has **74 passing tests**, including 64 adapted Lunatic regressions and 10 document/Qt integration checks. The GPU probe separately tests the actual renderer; CPU tests do not substitute for that evidence.
 
-The [native wireframe check](evidence/native-wireframe.json) switched Shaded → Wireframe → Shaded on the actual Qt desktop in both RTPT and PT, retaining the renderer worker. The mean absolute RGBA difference from the initial shaded image was over 10/255 in wireframe and below 0.07/255 after restoring shaded. Saving and reopening an `.omnilab` project restored Wireframe without marking the USD document dirty. The temporary RenderProduct authors `omni:rtx:wireframe:enabled`, `omni:rtx:wireframe:mode` (`shaded`) and `omni:rtx:wireframe:thickness` (1.5); returning to Shaded explicitly disables wireframe.
+The [native wireframe check](evidence/native-wireframe.json) switched between Shaded, Shaded Wireframe and Unlit Wireframe on the actual Qt desktop in both RTPT and PT, retaining the renderer worker. The mean absolute RGB difference from the initial shaded image was over 14/255 in either wireframe mode and below 0.1/255 after restoring shaded. Both wireframe choices survived saving and reopening an `.omnilab` project without marking the USD document dirty. Legacy projects saved as Wireframe reopened as Shaded Wireframe.
 
-![Native ovRTX wireframe in the Qt editor](evidence/native-wireframe.png)
+The temporary RenderProduct authors `omni:rtx:wireframe:enabled`, `omni:rtx:wireframe:mode` (`shaded` for material/lighting on edges, `emissive` for unlit lines) and `omni:rtx:wireframe:thickness` (1.5). Returning to Shaded explicitly disables wireframe. These settings do not modify saved USD geometry or materials.
+
+![Native ovRTX shaded wireframe in the Qt editor](evidence/native-wireframe.png)
+
+![Native ovRTX unlit wireframe in the Qt editor](evidence/native-wireframe-unlit.png)
 
 ![OpenPBR save/reopen rendering](evidence/openpbr.png)
 
@@ -57,7 +61,7 @@ Both fixtures were saved with red material inputs, reopened and rendered. A subs
 2. **Authoring MaterialX registry:** `usd-core` 26.8 lacks the OpenPBR Sdr node definition here. The renderer successfully consumes the authored MaterialX graph using its own assets. P3 still needs a versioned catalog/provider; a functioning render is not proof of authoring reflection support.
 3. **MaterialX cache:** the SDK reports that it cannot create `/usr/bin/cache/rtx.materialx/...` with this system Python installation. Rendering still succeeds, but cache location/packaging requires a supported fix. No system-directory permissions were changed.
 4. **MDL resolution:** the demo authors the installed SDK module's absolute asset path. Save/reopen succeeds on this installation. Copying a project to another machine requires preserving or remapping that dependency; the SDK module is not bundled into the repo.
-5. **Overlay parity:** native wireframe shows triangulated render geometry, including quad diagonals and implicit spheres/cubes; original polygon edges alone are not an implemented display option. Points remains a CPU mesh overlay, skips meshes above 100,000 points and stage traversal after 10,000 prims, and does not test occlusion. Gizmos edit the first selected prim. Unsupported imported transform/lock cases use Lunatic's validation and preserve original stacks.
+5. **Overlay parity:** native wireframe shows triangulated render geometry, including quad diagonals and implicit spheres/cubes. Shaded Wireframe shades the edges; filled surfaces with a wire overlay and original polygon edges alone remain unimplemented. Points remains a CPU mesh overlay, skips meshes above 100,000 points and stage traversal after 10,000 prims, and does not test occlusion. Gizmos edit the first selected prim. Unsupported imported transform/lock cases use Lunatic's validation and preserve original stacks.
 6. **UI and native errors:** worker logs are inspectable during the session; the acceptance tools save copies. A worker failure is shown and requires explicit Restart. Automatic retry is intentionally bounded to user-directed restart.
 
 ## Reproduce

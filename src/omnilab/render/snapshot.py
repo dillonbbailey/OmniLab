@@ -8,9 +8,11 @@ MODES = ("RealTimePathTracing", "PathTracing", "MinimalRendering")
 
 
 def publish(document, directory, camera, resolution=(800, 500), mode=MODES[0], samples=16,
-            purposes=("default", "render"), aovs=("LdrColor",), *, wireframe=False):
+            purposes=("default", "render"), aovs=("LdrColor",), *, wireframe=False, wireframe_mode="shaded"):
     if mode not in MODES:
         raise ValueError("Unknown renderer mode.")
+    if wireframe_mode not in ("shaded", "emissive"):
+        raise ValueError("Unknown wireframe mode.")
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=True)
     # Flatten the composed, loaded, unmuted view only for this disposable render snapshot.
@@ -32,7 +34,7 @@ def publish(document, directory, camera, resolution=(800, 500), mode=MODES[0], s
     # Author both states explicitly: the renderer persists across snapshots, so
     # leaving the setting absent could retain the previous viewport's wireframe.
     product.GetPrim().CreateAttribute("omni:rtx:wireframe:enabled", Sdf.ValueTypeNames.Bool).Set(wireframe)
-    product.GetPrim().CreateAttribute("omni:rtx:wireframe:mode", Sdf.ValueTypeNames.Token).Set("shaded" if wireframe else "instance")
+    product.GetPrim().CreateAttribute("omni:rtx:wireframe:mode", Sdf.ValueTypeNames.Token).Set(wireframe_mode if wireframe else "instance")
     product.GetPrim().CreateAttribute("omni:rtx:wireframe:thickness", Sdf.ValueTypeNames.Float).Set(1.5)
     variables = []
     for name in aovs:
