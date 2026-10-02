@@ -1,0 +1,12 @@
+{
+  "RealTimePathTracing": {
+    "wireframe_difference": 10.58098479061046,
+    "restored_shaded_difference": 0.06456351135495521
+  },
+  "PathTracing": {
+    "wireframe_difference": 10.688726647683866,
+    "restored_shaded_difference": 0.05498819362455726
+  },
+  "project_display_restored": true,
+  "status": "passed"
+}

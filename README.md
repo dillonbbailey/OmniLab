@@ -23,6 +23,8 @@ The editor supports stage/layer inspection, typed property and transform editing
 
 Alt+left drag orbits, middle drag pans, and the wheel dollies. F frames selection; Shift+F frames the scene. W/E/R select translate/rotate/scale; drag an axis, or Escape to cancel. Click/rectangle selection uses native picking. View → Restart renderer recovers a stopped worker without discarding edits.
 
+Choose Viewport → Display → Wireframe for native ovRTX wireframe in either RTPT or PT. It shows triangulated render geometry, including implicit spheres and cubes. `.omnilab` projects retain the display mode.
+
 ![OmniLab Qt editor with native ovRTX output](docs/evidence/qt-editor.png)
 
 ## Validation and scope
@@ -35,7 +37,7 @@ Alt+left drag orbits, middle drag pans, and the wheel dollies. F frames selectio
 
 The probe renders real GPU images and saves a package/GPU manifest. The desktop replay exercises actual Qt input, native picking, manipulator undo, material deltas, stale-frame rejection, cancellation and recovery. It opens temporary windows and writes evidence under `artifacts/`.
 
-See [P0–P2 status](docs/P0_P2_STATUS.md) for tested coverage and remaining work. In particular, the graph editors, full RenderView and ovUI frontend are not implemented. CPU wireframe/point overlays are mesh-only and do not perform depth occlusion.
+See [P0–P2 status](docs/P0_P2_STATUS.md) for tested coverage and remaining work. In particular, the graph editors, full RenderView and ovUI frontend are not implemented. The Points display uses a CPU mesh overlay without depth occlusion.
 
 - [Implementation plan](docs/IMPLEMENTATION_PLAN.md)
 - [Lunatic behavior and migration matrix](docs/LUNATIC_PARITY.md)

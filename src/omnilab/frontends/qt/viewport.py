@@ -91,7 +91,7 @@ class Viewport(QWidget):
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.fillRect(self.rect(), QColor("#24262b"))
-        if not self.image.isNull() and self.display != "Wireframe":
+        if not self.image.isNull():
             painter.drawImage(self.image_rect(), self.image)
         camera = self.render_camera()
         frustum = camera.frustum
@@ -109,7 +109,7 @@ class Viewport(QWidget):
                     a, b, c, d = ([v[0], v[2], 0] for v in (a, b, c, d))
                 self.line3d(painter, a, b)
                 self.line3d(painter, c, d)
-        if self.document and (self.guides or self.display != "Shaded"):
+        if self.document and (self.guides or self.display == "Points"):
             self.draw_scene_overlays(painter)
         self.handles = []
         world = self.preview_world or self.selected_world()
@@ -162,7 +162,7 @@ class Viewport(QWidget):
                     painter.drawEllipse(point, 6, 6)
                     painter.drawText(point + QPointF(8, 0), prim.GetName())
                 self.line3d(painter, center, matrix.Transform(Gf.Vec3d(0, 0, -self.camera.distance * .04)))
-            if self.display == "Shaded" or not prim.IsA(UsdGeom.Mesh):
+            if self.display != "Points" or not prim.IsA(UsdGeom.Mesh):
                 continue
             mesh = UsdGeom.Mesh(prim)
             if mesh.ComputeVisibility(time) == "invisible":
@@ -172,21 +172,10 @@ class Viewport(QWidget):
                 continue
             painter.setPen(QPen(QColor("#ccd4df"), 1))
             transformed = [matrix.Transform(Gf.Vec3d(*p)) for p in points]
-            if self.display == "Points":
-                for point in transformed:
-                    projected = self.project(point)
-                    if projected is not None:
-                        painter.drawPoint(projected)
-            else:
-                indices = mesh.GetFaceVertexIndicesAttr().Get(time) or []
-                counts = mesh.GetFaceVertexCountsAttr().Get(time) or []
-                offset = 0
-                for count in counts:
-                    face = indices[offset:offset + count]
-                    for a, b in zip(face, list(face[1:]) + list(face[:1])):
-                        if 0 <= a < len(points) and 0 <= b < len(points):
-                            self.line3d(painter, transformed[a], transformed[b])
-                    offset += count
+            for point in transformed:
+                projected = self.project(point)
+                if projected is not None:
+                    painter.drawPoint(projected)
 
     def mousePressEvent(self, event):
         self.setFocus()

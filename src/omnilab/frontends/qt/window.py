@@ -268,16 +268,16 @@ class MainWindow(QMainWindow):
         guides.setChecked(True)
         guides.toggled.connect(lambda value: self.overlay("guides", value))
         r_layout.addRow(guides)
-        display = QComboBox()
-        display.addItems(["Shaded", "Wireframe", "Points"])
-        display.setToolTip("Wireframe and points are CPU mesh overlays; they do not use depth occlusion.")
-        display.currentTextChanged.connect(lambda value: self.overlay("display", value))
-        r_layout.addRow("Display", display)
+        self.display = QComboBox()
+        self.display.addItems(["Shaded", "Wireframe", "Points"])
+        self.display.setToolTip("Wireframe uses native ovRTX triangulated edges. Points uses a CPU mesh overlay without depth occlusion.")
+        self.display.currentTextChanged.connect(self.display_changed)
+        r_layout.addRow("Display", self.display)
         for text, callback in (("Restart renderer", self.restart_renderer), ("Stop renderer", self.stop_renderer), ("Inspect all ovRTX settings", self.settings_catalog)):
             button = QPushButton(text)
             button.clicked.connect(lambda checked=False, callback=callback: self.safe(callback))
             r_layout.addRow(button)
-        note = QLabel("Material graph editors: P3/P4.\nMoonRay graph conversion: P7.\nWireframe/points are mesh-only overlays.")
+        note = QLabel("Material graph editors: P3/P4.\nMoonRay graph conversion: P7.\nWireframe is native ovRTX; points is a mesh-only overlay.")
         note.setWordWrap(True)
         r_layout.addRow(note)
         right.addTab(rendering, "Viewport")
@@ -345,6 +345,7 @@ class MainWindow(QMainWindow):
         mode = preferences.get("mode", MODES[0])
         self.mode.setCurrentText(mode if mode in MODES[:2] else MODES[0])
         self.samples.setValue(int(preferences.get("samples", 16)))
+        self.display.setCurrentIndex(max(0, self.display.findText(preferences.get("display", "Shaded"))))
         self.ortho.setChecked(self.viewport.camera.orthographic)
         for name, check in self.purposes.items():
             check.setChecked(name in preferences.get("purposes", ("default", "render")))
@@ -384,7 +385,7 @@ class MainWindow(QMainWindow):
             if not Path(path).suffix:
                 path += ".omnilab" if "project" in selected else ".usda"
         self.document.view = dict(camera=self.viewport.camera.to_dict(), scene_camera=self.viewport.scene_camera_path,
-            viewport=dict(mode=self.mode.currentText(), samples=self.samples.value(),
+            viewport=dict(mode=self.mode.currentText(), samples=self.samples.value(), display=self.display.currentText(),
                           purposes=[name for name, check in self.purposes.items() if check.isChecked()]))
         self.document.save(path)
         self.refresh_title()
@@ -708,6 +709,10 @@ class MainWindow(QMainWindow):
         setattr(self.viewport, key, value)
         self.viewport.update()
 
+    def display_changed(self, value):
+        self.viewport.display = value
+        self.schedule_view()
+
     def camera_changed(self):
         if self._refreshing:
             return
@@ -770,7 +775,8 @@ class MainWindow(QMainWindow):
                 started = time.perf_counter()
                 self.snapshot = publish(self.document, Path(self.scratch.name) / str(self.snapshot_number), camera,
                     (w, h), self.mode.currentText(), self.samples.value(),
-                    tuple(name for name, check in self.purposes.items() if check.isChecked()))
+                    tuple(name for name, check in self.purposes.items() if check.isChecked()),
+                    wireframe=self.display.currentText() == "Wireframe")
                 self.deltas = {}
                 self.publication_ms = (time.perf_counter() - started) * 1000
                 self.snapshot_dirty = False
