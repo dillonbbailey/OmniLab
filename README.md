@@ -28,7 +28,8 @@ The editor retains USD layers, edit targets, transforms, typed properties, compo
 
 - **Viewport:** Alt+left drag orbits, middle drag pans, wheel dollies. F frames selection; Shift+F frames all. W/E/R select transform tools. Drag previews immediately, release commits one edit, Escape cancels. **Edit camera** makes navigation author the selected USD camera. View → Restart renderer recovers without discarding edits.
 - **Display:** Shaded, native Shaded Wireframe, native Unlit Wireframe, Wire over Shaded, and Points. The latter two use native depth with bounded CPU mesh overlays; see their geometry limits in the status document.
-- **Material Editor (Ctrl+M):** OpenPBR/MaterialX nodes, typed port dragging, grouped inputs, bindings, `.mtlx` import/export and graph-local undo. Start Preview for the native studio. Drag the preview to orbit; middle drag pans; wheel dollies. Tools provides map/blur baking and live/frozen camera projectors.
+- **Material Editor (Ctrl+M):** separate **OpenPBR**, **MDL** and **MaterialX** menus and node-library tabs, typed port dragging, grouped inputs, bindings, `.mtlx` import/export and graph-local undo. Long shader identifiers elide inside the inspector; hover for the full identifier. Start Preview for the native studio. Drag the preview to orbit; middle drag pans; wheel dollies. Tools provides map/blur baking and live/frozen camera projectors.
+- **Relaunch OmniLab:** File → Relaunch OmniLab (also Material Editor → Tools) starts a fresh process to load code changes, restoring unsaved document edits, the original save destination, selection/time, material tabs/studios and console text. Undo history and Python execution state start fresh. Finish or stop an active Python cell/final render and wait for MDL loading before relaunching. A durable checkpoint remains under `$XDG_CACHE_HOME/omnilab/relaunch` (normally `~/.cache/omnilab/relaunch`); relaunch does not overwrite the original scene file.
 - **RenderView (F6):** render the viewer, material studio or a USD file to linear multichannel EXR. Set fractional frame ranges, supported AOVs and pixel regions. Shift-drag the image to select a region. Inspect layers/components/mattes and original float pixels; save the original EXR with all channels intact. Final jobs pause the interactive renderers and resume them afterward.
 - **Python Console (F8):** explicit script execution in a cancellable worker. Successful cells apply as one undo transaction; errors, Stop or a conflicting document edit leave the main document intact.
 
@@ -64,6 +65,8 @@ Enable **View → Start MCP** in the editor and configure the stdio command abov
 ```
 
 [Full P2–P5 validation and reproduction commands](docs/P2_P5_STATUS.md) include native GPU material, EXR/region, projector/bake, Qt and MCP tests. The original [P0–P2 report](docs/P0_P2_STATUS.md) is retained as historical evidence.
+
+[Material Editor layout and relaunch validation](docs/MATERIAL_EDITOR_STATUS.md) records the subsequent Qt improvements and native restart check.
 
 **View → Inspect all ovRTX settings** opens typed viewport/material/final overrides and renderer-creation controls. Export all settings writes declarations, authored values, source versions and explicitly unknown effective values. Full extracted inventories remain available:
 

@@ -4,20 +4,29 @@ import threading
 from pathlib import Path
 from importlib.util import find_spec
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, QTimer
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (QApplication, QDialog, QWidget, QVBoxLayout, QHBoxLayout,
     QSplitter, QLineEdit, QListWidget, QListWidgetItem, QTreeWidget, QTreeWidgetItem,
-    QTabWidget, QPushButton, QLabel, QCheckBox, QFileDialog, QInputDialog, QColorDialog,
-    QMessageBox, QMenu)
+    QTabWidget, QTabBar, QPushButton, QLabel, QCheckBox, QFileDialog, QInputDialog, QColorDialog,
+    QMessageBox, QMenu, QSizePolicy, QHeaderView)
 from pxr import Sdf, UsdShade
 
-from omnilab.materials.catalog import default_catalog
+from omnilab.materials.catalog import default_catalog, material_section
 from omnilab.materials.graph import MaterialGraph, create_material
 from omnilab.materials.exchange import export_materialx, import_materialx
 from .material_canvas import GraphCanvas
 from .material_preview import MaterialPreview
 from .texture_preview import TexturePreview
+from .labels import ElidedLabel
+
+
+def parameter_text(value):
+    if isinstance(value, float):
+        return f'{value:.6g}'
+    if isinstance(value, (tuple, list)):
+        return '[' + ', '.join(parameter_text(item) for item in value) + ']'
+    return json.dumps(value)
 
 
 class GraphPanel(QWidget):
@@ -27,6 +36,7 @@ class GraphPanel(QWidget):
         super().__init__(parent)
         self.graph = graph
         self.current_node = ''
+        self.initial_frame_pending = True
         layout = QVBoxLayout(self)
         toolbar = QHBoxLayout()
         for label, command in [('Undo', 'undo'), ('Redo', 'redo'), ('Copy', 'copy'), ('Paste', 'paste'),
@@ -38,10 +48,16 @@ class GraphPanel(QWidget):
         ports.toggled.connect(self.show_ports)
         toolbar.addWidget(ports)
         layout.addLayout(toolbar)
-        splitter = QSplitter()
+        splitter = self.splitter = QSplitter()
+        splitter.setChildrenCollapsible(False)
         layout.addWidget(splitter, 1)
         library = QWidget()
+        library.setMinimumWidth(245)
         library_layout = QVBoxLayout(library)
+        self.library_sections = QTabBar()
+        for name in ('OpenPBR', 'MDL', 'MaterialX'):
+            self.library_sections.addTab(name)
+        library_layout.addWidget(self.library_sections)
         self.search = QLineEdit()
         self.search.setPlaceholderText('Find nodes: image, noise, mix…')
         library_layout.addWidget(self.search)
@@ -49,13 +65,19 @@ class GraphPanel(QWidget):
         library_layout.addWidget(self.library)
         splitter.addWidget(library)
         self.canvas = GraphCanvas()
+        self.canvas.setMinimumWidth(280)
         splitter.addWidget(self.canvas)
-        inspector = QWidget()
+        inspector = self.inspector = QWidget()
+        inspector.setMinimumWidth(275)
         inspector_layout = QVBoxLayout(inspector)
-        self.node_name = QLabel('Select a node')
+        self.node_name = ElidedLabel('Select a node')
         inspector_layout.addWidget(self.node_name)
+        self.node_identifier = ElidedLabel()
+        inspector_layout.addWidget(self.node_identifier)
         self.parameters = QTreeWidget()
         self.parameters.setHeaderLabels(['Input', 'Type', 'Value'])
+        self.parameters.header().setSectionResizeMode(QHeaderView.Interactive)
+        self.parameters.header().setStretchLastSection(True)
         self.parameters.setContextMenuPolicy(Qt.CustomContextMenu)
         self.parameters.customContextMenuRequested.connect(self.parameter_menu)
         inspector_layout.addWidget(self.parameters)
@@ -63,9 +85,17 @@ class GraphPanel(QWidget):
         inspector_layout.addWidget(self.texture_preview)
         self.diagnostics = QLabel()
         self.diagnostics.setWordWrap(True)
+        self.diagnostics.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
         inspector_layout.addWidget(self.diagnostics)
         splitter.addWidget(inspector)
-        splitter.setSizes([190, 600, 330])
+        splitter.setStretchFactor(0, 0)
+        splitter.setStretchFactor(1, 1)
+        splitter.setStretchFactor(2, 0)
+        splitter.setSizes([245, 495, 320])
+        nodes = graph.nodes()
+        section = material_section(nodes[0]['identifier'], nodes[0]['framework']) if nodes else 'OpenPBR'
+        self.library_sections.setCurrentIndex({'OpenPBR': 0, 'MDL': 1, 'MaterialX': 2}.get(section, 2))
+        self.library_sections.currentChanged.connect(self.refresh_library)
         self.search.textChanged.connect(self.refresh_library)
         self.library.itemDoubleClicked.connect(self.add_node)
         self.canvas.selectionChanged.connect(self.inspect)
@@ -78,7 +108,12 @@ class GraphPanel(QWidget):
         self.parameters.itemDoubleClicked.connect(lambda item, column: self.edit_parameter(item))
         self.refresh_library()
         self.reload()
-        self.canvas.fitInView(self.canvas.scene().itemsBoundingRect(), Qt.KeepAspectRatio)
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        if self.initial_frame_pending:
+            self.initial_frame_pending = False
+            QTimer.singleShot(0, self.canvas.frame_nodes)
 
     def error(self, error):
         QMessageBox.warning(self, 'Material graph', str(error))
@@ -101,6 +136,9 @@ class GraphPanel(QWidget):
     def refresh_library(self):
         self.library.clear()
         definitions = self.graph.catalog.search(self.search.text())
+        section = self.library_sections.tabText(self.library_sections.currentIndex())
+        definitions = [d for d in definitions if material_section(d.identifier, d.framework) == section]
+        self.library.setToolTip('Load an MDL module from the MDL menu to populate this section.' if section == 'MDL' else section + ' nodes')
         definitions.sort(key=lambda d: (d.identifier != 'ND_open_pbr_surface_surfaceshader', d.category, d.identifier))
         for definition in definitions:
             item = QListWidgetItem(definition.label + ' · ' + ', '.join(p.type for p in definition.outputs.values()))
@@ -122,9 +160,12 @@ class GraphPanel(QWidget):
         node = next((n for n in self.graph.nodes() if n['path'] == path), None)
         if not node:
             self.node_name.setText('Select a node')
+            self.node_identifier.clear()
             self.texture_preview.show_texture()
             return
-        self.node_name.setText(node['name'] + '\n' + node['identifier'])
+        section = material_section(node['identifier'], node['framework'])
+        self.node_name.setText(section + ' · ' + node['name'])
+        self.node_identifier.setText(node['identifier'])
         for name, port in node['inputs'].items():
             if port['type'] in ('filename', 'asset') and port.get('value'):
                 asset = self.graph.shader(path).GetInput(name).Get()
@@ -139,11 +180,11 @@ class GraphPanel(QWidget):
             if group not in groups:
                 groups[group] = QTreeWidgetItem([group])
                 self.parameters.addTopLevelItem(groups[group])
-            value = port['connection'] or json.dumps(port['value'])
+            value = port['connection'] or parameter_text(port['value'])
             item = QTreeWidgetItem([port['metadata'].get('uiname', name), port['type'], value])
             item.setData(0, Qt.UserRole, name)
             item.setToolTip(0, port['metadata'].get('doc', name))
-            item.setToolTip(2, 'Double-click to edit; right-click for raw values or connections.\n' + value)
+            item.setToolTip(2, 'Double-click to edit; right-click for raw values or connections.\n' + (port['connection'] or json.dumps(port['value'])))
             groups[group].addChild(item)
         self.parameters.expandAll()
         self.parameters.setColumnWidth(0, 155)
@@ -226,7 +267,7 @@ class GraphPanel(QWidget):
                 positions[node['path']] = (level * 360, counts.get(level, 0))
                 counts[level] = counts.get(level, 0) + self.canvas.nodes[node['path']].rect().height() + 80
             self.edit(lambda: self.graph.move(positions))
-            self.canvas.fitInView(self.canvas.scene().itemsBoundingRect(), Qt.KeepAspectRatio)
+            self.canvas.frame_nodes()
 
 
 class MaterialEditor(QDialog):
@@ -243,32 +284,46 @@ class MaterialEditor(QDialog):
         self.loading_module = False
         self.moduleLoaded.connect(self.finish_module)
         self.setWindowTitle('Material Editor — OmniLab')
-        self.resize(1650, 960)
+        available = owner.screen().availableGeometry()
+        self.resize(min(1480, available.width()-60), min(900, available.height()-80))
         layout = QVBoxLayout(self)
         row = QHBoxLayout()
-        for label, callback in [('New OpenPBR…', self.new_material), ('Open material…', self.choose_material),
-                                ('Import MaterialX…', self.import_file), ('Export MaterialX…', self.export_file),
-                                ('Bind to selection', self.bind), ('Load MDL…', self.load_mdl),
-                                ('New OmniPBR…', self.new_omnipbr), ('MDL paths…', self.mdl_paths)]:
+        for label, entries in [
+            ('OpenPBR', [('New OpenPBR material…', self.new_material)]),
+            ('MDL', [('New OmniPBR material…', self.new_omnipbr), ('New MDL material…', self.new_mdl_material),
+                     ('Load / reload module…', self.load_mdl), ('Module search paths…', self.mdl_paths)]),
+            ('MaterialX', [('Import .mtlx…', self.import_file), ('Export .mtlx…', self.export_file)]),
+        ]:
+            button = QPushButton(label)
+            menu = QMenu(button)
+            for title, callback in entries:
+                menu.addAction(title, lambda checked=False, callback=callback: owner.safe(callback))
+            button.setMenu(menu)
+            row.addWidget(button)
+        for label, callback in [('Open material…', self.choose_material), ('Bind to selection', self.bind)]:
             button = QPushButton(label)
             button.clicked.connect(lambda checked=False, callback=callback: owner.safe(callback))
             row.addWidget(button)
         row.addStretch()
         tools_button = QPushButton('Tools')
         tools_menu = QMenu(tools_button)
-        for label, callback in [('New MDL material…', self.new_mdl_material), ('Bake selected map…', self.bake_map), ('Insert baked EXR…', self.insert_bake)]:
+        for label, callback in [('Bake selected map…', self.bake_map), ('Insert baked EXR…', self.insert_bake)]:
             action = tools_menu.addAction(label)
             action.triggered.connect(lambda checked=False, callback=callback: owner.safe(callback))
         for label, callback in [('Camera projector…', self.add_projector), ('Freeze camera projectors', self.freeze_projectors)]:
             action = tools_menu.addAction(label)
             action.triggered.connect(lambda checked=False, callback=callback: owner.safe(callback))
         tools_button.setMenu(tools_menu)
+        tools_menu.addSeparator()
+        tools_menu.addAction('Relaunch OmniLab', lambda: owner.safe(owner.relaunch))
         row.addWidget(tools_button)
         layout.addLayout(row)
         self.module_status = QLabel()
         self.module_status.setWordWrap(True)
+        self.module_status.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
         layout.addWidget(self.module_status)
-        splitter = QSplitter()
+        splitter = self.splitter = QSplitter()
+        splitter.setChildrenCollapsible(False)
         layout.addWidget(splitter, 1)
         self.tabs = QTabWidget()
         self.tabs.setTabsClosable(True)
@@ -276,7 +331,9 @@ class MaterialEditor(QDialog):
         splitter.addWidget(self.tabs)
         self.preview = MaterialPreview()
         splitter.addWidget(self.preview)
-        splitter.setSizes([1250, 400])
+        splitter.setStretchFactor(0, 1)
+        splitter.setStretchFactor(1, 0)
+        splitter.setSizes([1120, 320])
         self.tabs.currentChanged.connect(self.current_changed)
         saved_tabs = dict(self.document.view.get('materials', {}))
         paths = saved_tabs.get('tabs', [])

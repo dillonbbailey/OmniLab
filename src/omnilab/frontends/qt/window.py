@@ -4,8 +4,8 @@ from pathlib import Path
 import tempfile
 import time
 
-from PySide6.QtCore import Qt, QTimer, Signal, QSignalBlocker
-from PySide6.QtGui import QAction, QKeySequence, QImage, QFont
+from PySide6.QtCore import Qt, QTimer, Signal, QSignalBlocker, QProcess
+from PySide6.QtGui import QAction, QImage, QFont
 from PySide6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QSplitter,
     QTreeWidget, QTreeWidgetItem, QTabWidget, QTableWidget, QTableWidgetItem, QLineEdit,
     QLabel, QPushButton, QComboBox, QSpinBox, QDoubleSpinBox, QCheckBox, QDockWidget,
@@ -80,6 +80,7 @@ class MainWindow(QMainWindow):
         self._updating = False
         self.frame_count = 0
         self.stale_frame_count = 0
+        self.relaunching = False
         self.publish_timer = QTimer(self)
         self.publish_timer.setSingleShot(True)
         self.publish_timer.setInterval(16)
@@ -113,6 +114,8 @@ class MainWindow(QMainWindow):
         self.action(menu, "Publish selected prim as asset…", self.publish_asset)
         self.action(menu, "Save viewport image…", self.save_image)
         self.action(menu, "Reload from disk", self.reload)
+        self.relaunch_action = self.action(menu, "Relaunch OmniLab", self.relaunch)
+        self.relaunch_action.setToolTip('Reload application code and restore the current document. Undo and Python execution state start fresh.')
         menu.addSeparator()
         self.action(menu, "Close", self.close, "Ctrl+Q")
         menu = self.menuBar().addMenu("&Edit")
@@ -411,15 +414,64 @@ class MainWindow(QMainWindow):
                 return False
             if not Path(path).suffix:
                 path += ".omnilab" if "project" in selected else ".usda"
-        if getattr(self, 'render_view', None):
-            self.render_view.save_preferences()
-        self.document.view.update(camera=self.viewport.camera.to_dict(), scene_camera=self.viewport.scene_camera_path,
-            viewport=dict(mode=self.mode.currentText(), samples=self.samples.value(), display=self.display.currentText(),
-                          purposes=[name for name, check in self.purposes.items() if check.isChecked()]))
+        self.capture_view_preferences()
         self.document.save(path)
         self.refresh_title()
         self.log.appendPlainText("Saved " + path)
         return True
+
+    def capture_view_preferences(self):
+        if getattr(self, 'render_view', None):
+            self.render_view.save_preferences()
+        if getattr(self, 'material_editor', None):
+            self.material_editor.preview.save_state()
+        self.document.view.update(camera=self.viewport.camera.to_dict(), scene_camera=self.viewport.scene_camera_path,
+            viewport=dict(mode=self.mode.currentText(), samples=self.samples.value(), display=self.display.currentText(),
+                          purposes=[name for name, check in self.purposes.items() if check.isChecked()]))
+
+    def relaunch(self):
+        if self.relaunching:
+            return
+        console = getattr(self, 'python_console', None)
+        view = getattr(self, 'render_view', None)
+        materials = getattr(self, 'material_editor', None)
+        if console and console.running:
+            raise ValueError('Stop or finish the Python cell before relaunching.')
+        if view and view.job and view.job.active:
+            raise ValueError('Cancel or finish the final render before relaunching.')
+        if materials and materials.loading_module:
+            raise ValueError('Wait for the MDL module to finish loading before relaunching.')
+        from omnilab.core.relaunch import write_checkpoint
+        import sys
+        self.capture_view_preferences()
+        state = dict(material_editor=bool(materials and materials.isVisible()),
+                     preview=bool(materials and materials.preview.enabled),
+                     console=console.code.toPlainText() if console else None,
+                     console_visible=bool(console and console.isVisible()),
+                     render_view=bool(view and view.isVisible()))
+        checkpoint = write_checkpoint(self.document, state)
+        arguments = ['-m', 'omnilab.app', '--resume-session', str(checkpoint)]
+        if not self.render_enabled:
+            arguments.append('--no-render')
+        started, _ = QProcess.startDetached(sys.executable, arguments, str(Path.cwd()))
+        if not started:
+            raise OSError('Could not launch OmniLab. This window remains open; checkpoint: ' + str(checkpoint))
+        self.relaunching = True
+        self.close()
+
+    def restore_workspace(self, state):
+        if state.get('material_editor'):
+            self.open_material_editor(follow_selection=False)
+            if state.get('preview') and self.material_editor.current():
+                self.material_editor.preview.start()
+        if state.get('render_view'):
+            self.open_render_view()
+        if state.get('console') is not None:
+            self.open_python_console()
+            self.python_console.code.setPlainText(state['console'])
+            self.python_console.setVisible(state.get('console_visible', False))
+        self.log.appendPlainText('Relaunched OmniLab; document restored. Undo and Python execution state start fresh.')
+        self.refresh_title()
 
     def export_flattened(self):
         path, _ = QFileDialog.getSaveFileName(self, "Export flattened USD", "flattened.usda", "USD (*.usda *.usd *.usdc)")
@@ -706,13 +758,13 @@ class MainWindow(QMainWindow):
             self.log.appendPlainText('Stdio client command: ' + str(Path(__file__).resolve().parents[4] / '.venv/bin/omnilab-mcp'))
             self.log_dock.show()
 
-    def open_material_editor(self):
+    def open_material_editor(self, *, follow_selection=True):
         from pxr import UsdShade
         from .material_editor import MaterialEditor
         if not getattr(self, 'material_editor', None):
             self.material_editor = MaterialEditor(self)
         editor = self.material_editor
-        for path in self.document.selection:
+        for path in self.document.selection if follow_selection else ():
             prim = self.document.stage.GetPrimAtPath(path)
             material = UsdShade.Material(prim)
             if not material:
@@ -1020,7 +1072,7 @@ class MainWindow(QMainWindow):
             "Double-click properties to edit typed JSON.\n\nCtrl+M: MaterialX / MDL graph editor. F6: final RenderView.\nMoonRay graph conversion remains P7.")
 
     def closeEvent(self, event):
-        if not self.discard_guard():
+        if not self.relaunching and not self.discard_guard():
             event.ignore()
             return
         self.publish_timer.stop()

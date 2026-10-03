@@ -7,13 +7,14 @@ import tempfile
 
 from PySide6.QtCore import QProcess, Qt
 from PySide6.QtGui import QPixmap
-from PySide6.QtWidgets import QLabel
+from PySide6.QtWidgets import QLabel, QSizePolicy
 
 
 class TexturePreview(QLabel):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setAlignment(Qt.AlignCenter)
+        self.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
         self.setMinimumHeight(160)
         self.setMaximumHeight(220)
         self.scratch = tempfile.TemporaryDirectory(prefix='omnilab-texture-')

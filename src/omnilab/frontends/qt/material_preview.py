@@ -4,7 +4,7 @@ import tempfile
 
 from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QImage, QPixmap
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QPushButton, QDoubleSpinBox, QFileDialog
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QPushButton, QDoubleSpinBox, QFileDialog, QSizePolicy
 
 from omnilab.core.camera import ViewCamera, camera_payload
 from omnilab.render.snapshot import publish
@@ -17,6 +17,23 @@ class PreviewImage(QLabel):
     def __init__(self, text):
         super().__init__(text)
         self.drag = None
+        self.source = None
+
+    def setText(self, text):
+        self.source = None
+        super().setText(text)
+
+    def set_image(self, image):
+        self.source = QPixmap.fromImage(image)
+        self.fit_image()
+
+    def fit_image(self):
+        if self.source is not None:
+            self.setPixmap(self.source.scaled(self.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.fit_image()
 
     def mousePressEvent(self, event):
         if event.button() in (Qt.LeftButton, Qt.MiddleButton):
@@ -45,6 +62,7 @@ class MaterialPreview(QWidget):
         self.label.setToolTip('Drag to orbit; middle drag to pan; wheel to dolly.')
         self.label.navigated.connect(self.navigate)
         self.label.setMinimumSize(300, 300)
+        self.label.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Expanding)
         self.label.setAlignment(Qt.AlignCenter)
         layout.addWidget(self.label, 1)
         row = QHBoxLayout()
@@ -71,6 +89,7 @@ class MaterialPreview(QWidget):
         layout.addWidget(stop)
         self.status = QLabel()
         self.status.setWordWrap(True)
+        self.status.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
         layout.addWidget(self.status)
         self.scratch = tempfile.TemporaryDirectory(prefix='omnilab-material-')
         self.bridge = RendererBridge(Path(self.scratch.name) / 'runtime', self)
@@ -142,12 +161,15 @@ class MaterialPreview(QWidget):
 
     def schedule(self, *_):
         self.request += 1
+        self.save_state()
+        if self.enabled:
+            self.timer.start()
+
+    def save_state(self):
         if self.graph:
             self.graph.document.view.setdefault('material_studios', {})[str(self.graph.path)] = dict(
                 camera=self.camera.to_dict(), geometry=self.geometry.currentText(), mode=self.mode.currentText(),
                 light=self.light.value(), hdri=self.hdri)
-        if self.enabled:
-            self.timer.start()
 
     def studio_scene(self):
         from omnilab.materials.studio import studio_scene
@@ -187,7 +209,7 @@ class MaterialPreview(QWidget):
             height, width, _ = event['shape']
             self.picture = QImage(event['pixels'], width, height, width * 4, QImage.Format_RGBA8888).copy()
             self.presented_request = event['request']
-            self.label.setPixmap(QPixmap.fromImage(self.picture).scaled(self.label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            self.label.set_image(self.picture)
             self.status.setText(f'{self.mode.currentText()} · {event["milliseconds"]:.1f} ms')
         elif event['type'] in ('error', 'stopped'):
             self.ready = self.enabled = False

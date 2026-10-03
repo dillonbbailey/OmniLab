@@ -11,6 +11,7 @@ def main():
     parser.add_argument("scene", nargs="?")
     parser.add_argument("--no-render", action="store_true", help="Open the editor without starting ovRTX")
     parser.add_argument("--demo", action="store_true", help="Create an editable example scene")
+    parser.add_argument('--resume-session', help=argparse.SUPPRESS)
     args = parser.parse_args()
     app = QApplication(sys.argv[:1])
     app.setOrganizationName("OmniLab")
@@ -18,7 +19,12 @@ def main():
     app.setStyle("Fusion")
     window = MainWindow(render_enabled=not args.no_render)
     window.show()
-    if args.scene:
+    if args.resume_session:
+        from omnilab.core.relaunch import read_checkpoint
+        document, state = read_checkpoint(args.resume_session)
+        window.install_document(document)
+        window.restore_workspace(state)
+    elif args.scene:
         window.safe(lambda: window.open_path(args.scene))
     elif args.demo:
         window.new_demo()

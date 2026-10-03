@@ -16,6 +16,7 @@ def main():
             if time.monotonic()>deadline:raise TimeoutError(preview.status.text())
             app.processEvents();QTest.qWait(10)
     try:
+        QTest.mouseClick(panel.library_sections, Qt.LeftButton, Qt.NoModifier, panel.library_sections.tabRect(2).center())
         panel.search.setText('constant color3');app.processEvents();QTest.qWait(200)
         item=panel.library.item(0);assert item.data(Qt.UserRole)=='ND_constant_color3'
         QTest.mouseClick(panel.library.viewport(),Qt.LeftButton,Qt.NoModifier,panel.library.visualItemRect(item).center())

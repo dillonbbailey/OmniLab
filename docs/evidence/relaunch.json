@@ -1,0 +1,13 @@
+{
+  "status": "passed",
+  "menu_click": true,
+  "real_replacement_process": true,
+  "original_file_unchanged": true,
+  "unsaved_edits_restored": true,
+  "original_save_path_restored": true,
+  "selection_and_time_restored": true,
+  "material_editor_reopened": true,
+  "console_text_restored_without_execution": true,
+  "dirty_title_visible": true,
+  "checkpoint_retained": true
+}

@@ -40,6 +40,7 @@ class Document:
         self.frame = self.stage.GetStartTimeCode()
         self.selection = []
         self.view = {}
+        self.recovered_unsaved = False
         self._runtime_state = self._state()
 
     def _state(self):
@@ -48,7 +49,7 @@ class Document:
 
     @property
     def dirty(self):
-        return self.edits.state()["dirty"] or self._runtime_state != self._state()
+        return self.recovered_unsaved or self.edits.state()["dirty"] or self._runtime_state != self._state()
 
     @classmethod
     def open(cls, path):
@@ -178,6 +179,7 @@ class Document:
             self.edits.export(path, self.retained)
         self.path = path
         self._runtime_state = self._state()
+        self.recovered_unsaved = False
         return path
 
     def bounds(self, paths=()):

@@ -4,6 +4,8 @@ Research date: 2026-10-02. The user chose Qt first and standalone ovUI as a seco
 
 P6 adds [standalone ovUI implementation and acceptance](P6_STATUS.md) with [native input/GPU evidence](evidence/ovui-validation.json), shared document round trips and fresh Qt regression replays. Its pinned NVIDIA widgets are installed dependencies; the inspected upstream checkout remains in ignored `.cache`.
 
+Subsequent [Qt Material Editor layout and relaunch validation](MATERIAL_EDITOR_STATUS.md) records separate material framework sections, bounded MDL inspector sizing, native preview acceptance and an actual process restart with unsaved-document recovery.
+
 ## Local sources
 
 | Source | Identity | Use |

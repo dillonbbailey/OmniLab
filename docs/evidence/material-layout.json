@@ -1,0 +1,14 @@
+{
+  "status": "passed",
+  "size": [
+    1480,
+    900
+  ],
+  "compact_width": 1300,
+  "identifier_length": 463,
+  "canvas_width": 359,
+  "inspector_width": 320,
+  "preview_width": 320,
+  "framework_sections": true,
+  "native_mdl_preview": true
+}

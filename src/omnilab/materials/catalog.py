@@ -52,6 +52,15 @@ class Definition:
     metadata: dict = field(default_factory=dict)
 
 
+def material_section(identifier, framework='mtlx'):
+    """Artist-facing library family; OpenPBR nodes still use MaterialX authoring."""
+    if framework == 'mdl':
+        return 'MDL'
+    if framework == 'mtlx' and 'open_pbr' in identifier.lower():
+        return 'OpenPBR'
+    return 'MaterialX' if framework == 'mtlx' else 'USD'
+
+
 class Catalog:
     def __init__(self, library=None):
         self.library = mx.createDocument()

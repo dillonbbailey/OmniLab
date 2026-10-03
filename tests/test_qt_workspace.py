@@ -2,7 +2,7 @@ import os
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
-from PySide6.QtCore import Qt, QPoint, QPointF, QTimer
+from PySide6.QtCore import Qt, QPoint, QTimer
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
 from pxr import UsdGeom, Usd
@@ -181,7 +181,6 @@ def test_scene_camera_navigation_commit_escape_and_detach(window):
 
 def test_depth_overlay_rejects_occluded_and_behind_camera_points(window):
     import numpy as np
-    from pxr import Gf
     from omnilab.core.camera import ViewCamera
     from PySide6.QtGui import QImage
     viewport = window.viewport
@@ -213,3 +212,103 @@ def test_document_undo_refreshes_material_tabs_and_accepted_frame_is_displayed(w
         shape=(1,1,4), pixels=b'\xff\x00\x00\xff', milliseconds=1, hits=None))
     assert not window.viewport.image.isNull()
     assert window.viewport.image.pixelColor(0, 0).red() == 255
+
+
+def test_long_mdl_identifier_does_not_expand_material_editor(window, monkeypatch):
+    from dataclasses import replace
+    from pxr import UsdShade
+    from PySide6.QtGui import QImage
+    window.open_material_editor()
+    editor = window.material_editor
+    panel = editor.current()
+    path = panel.graph.nodes()[0]['path']
+    signature = 'mdl:/a/very/long/module.mdl#OmniPBR(' + ','.join(['float', 'texture_2d', 'color'] * 60) + ')'
+    definition = replace(panel.graph.catalog.definition('ND_open_pbr_surface_surfaceshader'),
+                         identifier=signature, framework='mdl')
+    monkeypatch.setitem(panel.graph.catalog.definitions, signature, definition)
+    UsdShade.Shader(window.document.stage.GetPrimAtPath(path)).GetPrim().SetCustomDataByKey('omnilab:definition', signature)
+    # Reflected function signatures must remain inspectable without driving layout.
+    UsdShade.Shader(window.document.stage.GetPrimAtPath(path)).SetSourceAsset('/a/very/long/module.mdl', 'mdl')
+    UsdShade.Shader(window.document.stage.GetPrimAtPath(path)).GetIdAttr().Set('')
+    panel.reload()
+    panel.inspect(path)
+    editor.resize(1400, 800)
+    QApplication.processEvents()
+    assert editor.width() == 1400
+    assert editor.minimumSizeHint().width() < 1400
+    assert panel.node_identifier.toolTip() == signature
+    assert panel.node_name.text().startswith('MDL')
+    assert panel.canvas.width() >= 280 and panel.inspector.width() >= 275
+    assert editor.preview.width() >= 300
+    image = QImage(4096, 2048, QImage.Format_RGBA8888)
+    editor.preview.label.set_image(image)
+    QApplication.processEvents()
+    assert editor.width() == 1400
+    editor.resize(1300, 800)
+    QApplication.processEvents()
+    assert editor.width() == 1300
+    assert editor.preview.label.pixmap().width() <= editor.preview.label.width()
+
+
+def test_material_library_sections_filter_independently(window):
+    from omnilab.materials.catalog import material_section
+    window.open_material_editor()
+    panel = window.material_editor.current()
+    for index, section in enumerate(['OpenPBR', 'MDL', 'MaterialX']):
+        panel.library_sections.setCurrentIndex(index)
+        panel.search.clear()
+        panel.refresh_library()
+        identifiers = [panel.library.item(i).data(Qt.UserRole) for i in range(panel.library.count())]
+        assert all(material_section(key, panel.graph.catalog.definition(key).framework) == section for key in identifiers)
+        if section != 'MDL':
+            assert identifiers
+    panel.search.setText('constant color3')
+    assert panel.library.count() and panel.library.item(0).data(Qt.UserRole) == 'ND_constant_color3'
+
+
+def test_relaunch_failure_keeps_unsaved_editor_open(window, tmp_path, monkeypatch):
+    from PySide6.QtCore import QProcess
+    from omnilab.core import relaunch
+    original = relaunch.write_checkpoint
+    monkeypatch.setattr(relaunch, 'write_checkpoint', lambda doc, state: original(doc, state, tmp_path))
+    monkeypatch.setattr(QProcess, 'startDetached', lambda *args: (False, 0))
+    window.execute('set_property', dict(path='/World/Cube', group='Attributes', name='size', value=4))
+    with pytest.raises(OSError, match='remains open'):
+        window.relaunch()
+    assert window.isVisible() and not window.relaunching and window.document.dirty
+    assert len(list(tmp_path.glob('*.omnilab'))) == 1
+
+
+def test_relaunch_starts_same_python_and_restores_materials_without_running_console(window, tmp_path, monkeypatch):
+    import sys
+    from PySide6.QtCore import QProcess
+    from omnilab.core import relaunch
+    from omnilab.materials.graph import create_material
+    original = relaunch.write_checkpoint
+    monkeypatch.setattr(relaunch, 'write_checkpoint', lambda doc, state: original(doc, state, tmp_path))
+    launches = []
+    monkeypatch.setattr(QProcess, 'startDetached', lambda *args: (launches.append(args) or (True, 123)))
+    window.open_material_editor()
+    second = create_material(window.document, 'Second')
+    window.material_editor.open_material(second.path)
+    window.document.select(['/World/Cube'])  # Bound to Surface, while Second is active.
+    window.open_python_console()
+    window.python_console.code.setPlainText("raise RuntimeError('do not execute')")
+    window.execute('set_property', dict(path='/World/Cube', group='Attributes', name='size', value=4))
+    window.relaunch()
+    assert not window.isVisible() and window.relaunching
+    executable, args, _ = launches[0]
+    assert executable == sys.executable and args[:2] == ['-m', 'omnilab.app'] and '--no-render' in args
+    document, state = relaunch.read_checkpoint(args[3])
+    assert document.dirty and state['material_editor']
+    replacement = MainWindow(render_enabled=False)
+    try:
+        replacement.install_document(document)
+        replacement.restore_workspace(state)
+        assert replacement.material_editor.isVisible()
+        assert replacement.material_editor.current().graph.path == second.path
+        assert replacement.python_console.code.toPlainText() == state['console']
+        assert replacement.python_console.process is None
+    finally:
+        replacement.relaunching = True
+        replacement.close()

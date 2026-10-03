@@ -73,6 +73,7 @@ class GraphCanvas(QGraphicsView):
         self.setRenderHint(QPainter.Antialiasing)
         self.setDragMode(QGraphicsView.RubberBandDrag)
         self.setTransformationAnchor(QGraphicsView.AnchorUnderMouse)
+        self.setResizeAnchor(QGraphicsView.AnchorViewCenter)
         self.nodes, self.edges, self.data = {}, [], []
         self.all_ports = False
         self.connection_start = self.connection_line = None
@@ -105,6 +106,14 @@ class GraphCanvas(QGraphicsView):
     def update_edges(self):
         for line, a, b in self.edges:
             line.setPath(curve(a.scenePos(), b.scenePos()))
+
+    def frame_nodes(self):
+        bounds = self.scene().itemsBoundingRect().adjusted(-24, -24, 24, 24)
+        self.fitInView(bounds, Qt.KeepAspectRatio)
+        scale = self.transform().m11()
+        if scale > 1:
+            self.scale(1/scale, 1/scale)
+        self.centerOn(bounds.center())
 
     def selected_paths(self):
         return [item.node['path'] for item in self.scene().selectedItems() if isinstance(item, NodeItem)]
@@ -189,6 +198,6 @@ class GraphCanvas(QGraphicsView):
         if event.key() == Qt.Key_Delete:
             self.commandRequested.emit('delete')
         elif event.key() == Qt.Key_F:
-            self.fitInView(self.scene().itemsBoundingRect(), Qt.KeepAspectRatio)
+            self.frame_nodes()
         else:
             super().keyPressEvent(event)
