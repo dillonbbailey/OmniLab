@@ -79,7 +79,18 @@ class Document:
         self.selection = list(dict.fromkeys(str(p) for p in paths if self.stage.GetPrimAtPath(p)))
 
     def command(self, name, *args, **kwargs):
+        if name == 'edit_prims':
+            return self.edit_prims(*args, **kwargs)
+        if name == 'set_properties':
+            return self.edit_prims([dict(name='set_property', data=item) for item in args[0]],
+                                   label='Set selected properties')
         previous_selection = list(self.selection)
+        restore_selection = None
+        restoring_redo = kwargs.get('redo', args[0] if args and name == 'restore' else False)
+        if name == 'restore':
+            history = self.edits.redo if restoring_redo else self.edits.undo
+            if history and len(history[-1]) > 3 and isinstance(history[-1][3], dict):
+                restore_selection = history[-1][3].get('selection')
         if name == "variant":
             result = edit_variant(self.edits, *args, **kwargs)
         elif name == "payload":
@@ -108,6 +119,11 @@ class Document:
                 raise ValueError("Unknown document command: " + name)
             result = getattr(self.edits, name)(*args, **kwargs)
         self.revision += 1
+        if restore_selection is not None:
+            reverse = self.edits.undo if restoring_redo else self.edits.redo
+            reverse[-1][3]['selection'] = previous_selection
+            self.select(restore_selection)
+            return result
         move = None
         if name == "reparent_prim":
             move = (Sdf.Path(args[0]["path"]), Sdf.Path(result))
@@ -118,6 +134,38 @@ class Document:
         else:
             self.select(previous_selection)
         return result
+
+    def edit_prims(self, operations, label='Edit selected prims'):
+        """Batch property/namespace commands without partial edits or extra undo steps."""
+        operations = list(operations)
+        if any(op['name'] not in {'set_property', 'reparent_prim'} for op in operations):
+            raise ValueError('A prim edit batch accepts property and namespace commands only.')
+        layers = tuple(self.edits.track_layer(layer) for layer in self.stage.GetLayerStack())
+        before = tuple(layer.ExportToString() for layer in layers)
+        rules, selection = self.stage.GetLoadRules(), list(self.selection)
+        undo, redo = list(self.edits.undo), list(self.edits.redo)
+        revision = self.revision
+        try:
+            results = [self.command(op['name'], op['data']) for op in operations]
+        except Exception:
+            with Sdf.ChangeBlock():
+                for layer, text in zip(layers, before):
+                    if layer.ExportToString() != text:
+                        layer.ImportFromString(text)
+            self.stage.SetLoadRules(rules)
+            self.select(selection)
+            raise
+        finally:
+            self.edits.undo[:], self.edits.redo[:] = undo, redo
+            self.revision = revision
+        changed = [(layer, text) for layer, text in zip(layers, before) if layer.ExportToString() != text]
+        if changed:
+            self.edits.undo.append((label, tuple(row[0] for row in changed), tuple(row[1] for row in changed),
+                                   dict(load_rules=rules, selection=selection)))
+            self.edits.undo = self.edits.undo[-100:]
+            self.edits.redo.clear()
+            self.revision += 1
+        return results
 
     def save(self, path=None):
         path = str(Path(path or self.path).expanduser().absolute())

@@ -635,21 +635,8 @@ class MainWindow(QMainWindow):
             return
         before = Gf.Matrix4d(*[value for row in data['before'] for value in row])
         after = Gf.Matrix4d(*[value for row in data['matrix'] for value in row])
-        delta = before.GetInverse() * after
-        root = self.document.stage.GetPrimAtPath(data['path'])
-        cache = UsdGeom.XformCache(Usd.TimeCode(self.document.frame))
-        skip = []
-        for prim in Usd.PrimRange(root):
-            xform = UsdGeom.Xformable(prim)
-            if not xform or any(prim.GetPath().HasPrefix(path) for path in skip):
-                continue
-            if prim != root and xform.GetResetXformStack():
-                skip.append(prim.GetPath())
-                continue
-            matrix = cache.GetLocalToWorldTransform(prim) * delta
-            path = str(prim.GetPath())
-            self.deltas[path + '.omni:xform'] = dict(path=path, attribute='omni:xform',
-                value=[list(row) for row in matrix], dtype='float64', lanes=16)
+        from omnilab.render.deltas import transform_deltas
+        self.deltas.update(transform_deltas(self.document, data['path'], before, after))
         self.schedule_view(False, interactive=True)
 
     def edit_property(self, row):

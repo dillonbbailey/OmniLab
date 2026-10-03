@@ -35,6 +35,29 @@ def test_selection_transform_and_undo_use_shared_document(window):
     assert window.document.dirty is False
 
 
+def test_ovui_adapters_to_qt_and_back_preserve_project(window, tmp_path):
+    pytest.importorskip('ovui_data_adapters')
+    from omnilab.core.document import Document
+    from omnilab.core.fixtures import demo_document
+    from omnilab.frontends.ovui.adapters import DocumentPropertyAdapter
+    from omnilab.materials.graph import MaterialGraph
+    document = demo_document()
+    adapter = DocumentPropertyAdapter(document, ['/World/Cube'])
+    adapter.begin_edit('size')
+    adapter.set_value('size', 2.25)
+    adapter.end_edit('size')
+    graph = MaterialGraph(document, '/World/Looks/Surface')
+    graph.move({'/World/Looks/Surface/Shader': [80, 160]})
+    document.save(tmp_path/'ovui.omnilab')
+    window.install_document(Document.open(tmp_path/'ovui.omnilab'))
+    assert window.document.stage.GetPrimAtPath('/World/Cube').GetAttribute('size').Get() == 2.25
+    window.execute('set_property', dict(path='/World/Cube', group='Attributes', name='size', value=3.5))
+    window.document.save(tmp_path/'qt.omnilab')
+    reopened = Document.open(tmp_path/'qt.omnilab')
+    assert DocumentPropertyAdapter(reopened, ['/World/Cube']).get_value('size') == 3.5
+    assert MaterialGraph(reopened, graph.path).nodes()[0]['position'] == [80, 160]
+
+
 def test_camera_gestures_do_not_dirty_document(window):
     camera = window.viewport.camera.to_dict()
     QTest.mousePress(window.viewport, Qt.LeftButton, Qt.AltModifier, QPoint(100, 100))

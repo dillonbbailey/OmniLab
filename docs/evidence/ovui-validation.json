@@ -1,0 +1,936 @@
+{
+  "date": "2026-10-02",
+  "status": "passed",
+  "scope": "P6 core workflows; remaining UI parity in docs/P6_STATUS.md",
+  "packages": {
+    "ovui": "0.2.0",
+    "ovrtx": "0.5.0.377615",
+    "ovstage": "0.2.0.377349",
+    "usd-core": "26.8",
+    "PySide6-Essentials": "6.8.3",
+    "MaterialX": "1.39.5",
+    "OpenImageIO": "3.1.18.0"
+  },
+  "ovui_widget_commit": "a81db103a4d99ff2d75368a444e167889536ff42",
+  "gpu": "NVIDIA RTX PRO 6000 Blackwell",
+  "driver": "595.91.07",
+  "display": "isolated Xvfb, 1440x900",
+  "input": "NVIDIA Inspector mouse/keyboard injection into actual ovUI; screenshot-first; read-only state enabled; execute disabled",
+  "tests": {
+    "command": ".venv/bin/python -m pytest -q",
+    "passed": 142
+  },
+  "build": "uv build: wheel and source distribution passed",
+  "checks": {
+    "shared_document_reopen": true,
+    "no_qt_or_renderer_import_in_ovui_process": true,
+    "final_completed": true,
+    "cancelled_while_running": true,
+    "previous_exr_preserved": true,
+    "interactive_workers_resumed": true,
+    "file_picker_input_isolated": true,
+    "first_viewport_click_selects": true
+  },
+  "exr": {
+    "path": "artifacts/p6/native-final.exr",
+    "sha256": "591231433ca874369b81b4777cbc7be134cf3c03d05a46380ac87254e3bb8b1d",
+    "width": 1280,
+    "height": 720,
+    "channels": [
+      "R",
+      "G",
+      "B",
+      "A"
+    ],
+    "format": "float",
+    "finite": true,
+    "minimum": 0.00897979736328125,
+    "maximum": 34.5625
+  },
+  "project": {
+    "path": "artifacts/p6/ovui-roundtrip.omnilab",
+    "sha256": "63cdf718656f7b1a8d99607024cfc1f0598506f09cbd5ca2222378ccefb543aa",
+    "console_prim": true,
+    "material_node": true
+  },
+  "qt_viewport": {
+    "initial_frames": 2,
+    "picked": [
+      "/World/Sphere"
+    ],
+    "live_gizmo_before_commit": true,
+    "gizmo_single_undo": true,
+    "material_delta_without_reload": true,
+    "depth_tested_mesh_overlays": true,
+    "continuous_camera": {
+      "frames_during_drag": 27,
+      "drag_seconds": 1.1156075959952432,
+      "first_frame_ms": 48.84020899771713,
+      "median_frame_interval_ms": 40.27933200268308,
+      "final_camera_after_release_ms": 199.53859499946702,
+      "snapshot_reused": true
+    },
+    "persistent_worker_camera": true,
+    "cancel_inflight": true,
+    "cancel_seconds": 0.7319693259996711,
+    "restart_seconds": 6.80321665500378,
+    "save_reopen_recovery": true,
+    "repeated_open": 3,
+    "snapshot_cache_bounded": true,
+    "frames": 35,
+    "stale_frames_rejected": 39,
+    "status": "passed"
+  },
+  "qt_material": {
+    "status": "passed",
+    "node_library": true,
+    "port_drag": true,
+    "tab_preview_isolation": true,
+    "preview_camera_navigation": true,
+    "udim_thumbnail": true
+  },
+  "screenshots": {
+    "ovui-viewport.png": "e1efde4d97755b708e6d36a78c7579d6db063625030575e6d4f5c9b43bf279fe",
+    "ovui-material.png": "8cbb60c30611d0075946b796747e779c7b436115d06bc810809702225d42c5a8",
+    "ovui-render-view.png": "b587822173ee7fa6cd94e6b3e3bf8c60a6dd03031f0dc09c4e8c144c94a379cd",
+    "ovui-graph-connection.png": "76e466bf2e5de195abdc0d1ae6cb31fc831de4fe42848c1c020bcf01243c84f3"
+  },
+  "actions": [
+    {
+      "step": "04-pick-fixed",
+      "action": [
+        "click",
+        "609",
+        "541"
+      ],
+      "state": {
+        "revision": 0,
+        "selection": [
+          "/World/Cube"
+        ],
+        "undo": 0,
+        "redo": 0,
+        "render": {
+          "error": "",
+          "frames": 17,
+          "presented": 3,
+          "publications": 1,
+          "request": 3
+        },
+        "preview": {
+          "error": "",
+          "frames": 0
+        },
+        "final": null
+      },
+      "nodes": [],
+      "before_sha256": "a39a8c9d03a5d9465fe93504b97c43513e3f1329b6d8d62f6413ac43ffb376ca",
+      "after_sha256": "9a5315dc54c4c8932d8adeba991a6c32e50649c75b68262d4c9cfd40f50e47fa"
+    },
+    {
+      "step": "05-gizmo-fixed",
+      "action": [
+        "drag",
+        "666",
+        "550",
+        "722",
+        "558",
+        "--steps",
+        "12"
+      ],
+      "state": {
+        "revision": 1,
+        "selection": [
+          "/World/Cube"
+        ],
+        "undo": 1,
+        "redo": 0,
+        "render": {
+          "error": "",
+          "frames": 47,
+          "presented": 17,
+          "publications": 2,
+          "request": 17
+        },
+        "preview": {
+          "error": "",
+          "frames": 0
+        },
+        "final": null
+      },
+      "nodes": [],
+      "before_sha256": "9a5315dc54c4c8932d8adeba991a6c32e50649c75b68262d4c9cfd40f50e47fa",
+      "after_sha256": "2759937ba039ee18b98734aa1649e783a2ceefff007a62f48adb7f1ea53208c9"
+    },
+    {
+      "step": "06-undo-fixed",
+      "action": [
+        "combo",
+        "CTRL+Z"
+      ],
+      "state": {
+        "revision": 2,
+        "selection": [
+          "/World/Cube"
+        ],
+        "undo": 0,
+        "redo": 1,
+        "render": {
+          "error": "",
+          "frames": 55,
+          "presented": 19,
+          "publications": 3,
+          "request": 19
+        },
+        "preview": {
+          "error": "",
+          "frames": 0
+        },
+        "final": null
+      },
+      "nodes": [],
+      "before_sha256": "2759937ba039ee18b98734aa1649e783a2ceefff007a62f48adb7f1ea53208c9",
+      "after_sha256": "a552eb77fbc26e2cd516a9b48c48a376713ccf3ff730c915bf2ce5d0cb58b46a"
+    },
+    {
+      "step": "08-preview",
+      "action": [
+        "click",
+        "1120",
+        "520"
+      ],
+      "state": {
+        "revision": 2,
+        "selection": [
+          "/World/Cube"
+        ],
+        "undo": 0,
+        "redo": 1,
+        "render": {
+          "error": "",
+          "frames": 55,
+          "presented": 19,
+          "publications": 3,
+          "request": 19
+        },
+        "preview": {
+          "error": "",
+          "frames": 8
+        },
+        "final": null
+      },
+      "nodes": [
+        {
+          "path": "/World/Looks/Surface/Shader",
+          "position": [
+            0,
+            0
+          ],
+          "connections": {}
+        }
+      ],
+      "before_sha256": "25b2969cf255aff1f03ce27271524c69f026b0fb74423b97fee5a2907d2a4046",
+      "after_sha256": "56a757cccf60f1c31a94f22c570a23a15556a6a789e8bba7a2f23939e78d51fe"
+    },
+    {
+      "step": "13-add-node",
+      "action": [
+        "click",
+        "177",
+        "277"
+      ],
+      "state": {
+        "revision": 3,
+        "selection": [
+          "/World/Cube"
+        ],
+        "undo": 1,
+        "redo": 0,
+        "render": {
+          "error": "",
+          "frames": 63,
+          "presented": 20,
+          "publications": 4,
+          "request": 20
+        },
+        "preview": {
+          "error": "",
+          "frames": 16
+        },
+        "final": null
+      },
+      "nodes": [
+        {
+          "path": "/World/Looks/Surface/Shader",
+          "position": [
+            0,
+            0
+          ],
+          "connections": {}
+        },
+        {
+          "path": "/World/Looks/Surface/constant",
+          "position": [
+            285.0,
+            60.0
+          ],
+          "connections": {}
+        }
+      ],
+      "before_sha256": "ce039ffb533fef67e004f4a0992970bdaf4cedd12395d4e8935e031fdd97a0fb",
+      "after_sha256": "7acaac82b20a52a4455b1a95b25b73858a2d83a516aa9d6ba4f29c06303bc22b"
+    },
+    {
+      "step": "15-connect",
+      "action": [
+        "click",
+        "404",
+        "270"
+      ],
+      "state": {
+        "revision": 4,
+        "selection": [
+          "/World/Cube"
+        ],
+        "undo": 2,
+        "redo": 0,
+        "render": {
+          "error": "",
+          "frames": 71,
+          "presented": 21,
+          "publications": 5,
+          "request": 21
+        },
+        "preview": {
+          "error": "",
+          "frames": 24
+        },
+        "final": null
+      },
+      "nodes": [
+        {
+          "path": "/World/Looks/Surface/Shader",
+          "position": [
+            0,
+            0
+          ],
+          "connections": {
+            "base_color": "/World/Looks/Surface/constant.outputs:out"
+          }
+        },
+        {
+          "path": "/World/Looks/Surface/constant",
+          "position": [
+            285.0,
+            60.0
+          ],
+          "connections": {}
+        }
+      ],
+      "before_sha256": "8ec6f105509d58760b4b281544fa2bc4870e9bb4b3de6527b107d710a0fe2fce",
+      "after_sha256": "9b815c9f92432250a42a020a437e72e4516d852aeac33ef865f04bb0c1e55bb5"
+    },
+    {
+      "step": "16-graph-undo",
+      "action": [
+        "click",
+        "144",
+        "804"
+      ],
+      "state": {
+        "revision": 5,
+        "selection": [
+          "/World/Cube"
+        ],
+        "undo": 3,
+        "redo": 0,
+        "render": {
+          "error": "",
+          "frames": 79,
+          "presented": 22,
+          "publications": 6,
+          "request": 22
+        },
+        "preview": {
+          "error": "",
+          "frames": 32
+        },
+        "final": null
+      },
+      "nodes": [
+        {
+          "path": "/World/Looks/Surface/Shader",
+          "position": [
+            0,
+            0
+          ],
+          "connections": {}
+        },
+        {
+          "path": "/World/Looks/Surface/constant",
+          "position": [
+            285.0,
+            60.0
+          ],
+          "connections": {}
+        }
+      ],
+      "before_sha256": "9b815c9f92432250a42a020a437e72e4516d852aeac33ef865f04bb0c1e55bb5",
+      "after_sha256": "79ded0be06b9ee8deb676972c281a30add2cf99db3812a20ae0137c09282a628"
+    },
+    {
+      "step": "21-console-run",
+      "action": [
+        "click",
+        "199",
+        "438"
+      ],
+      "state": {
+        "revision": 6,
+        "selection": [
+          "/World/Cube"
+        ],
+        "undo": 4,
+        "redo": 0,
+        "render": {
+          "error": "",
+          "frames": 83,
+          "presented": 23,
+          "publications": 7,
+          "request": 23
+        },
+        "preview": {
+          "error": "",
+          "frames": 35
+        },
+        "final": null
+      },
+      "nodes": [
+        {
+          "path": "/World/Looks/Surface/Shader",
+          "position": [
+            0,
+            0
+          ],
+          "connections": {}
+        },
+        {
+          "path": "/World/Looks/Surface/constant",
+          "position": [
+            285.0,
+            60.0
+          ],
+          "connections": {}
+        }
+      ],
+      "before_sha256": "133f23d8eebe176e8def81fdb4b656133fcc6d2b3f10cecf5dcd83b5f8f53868",
+      "after_sha256": "2227a35b3efabdaba003073ea9f72b7de6af6aca5a717cb14be48a1342064211"
+    },
+    {
+      "step": "26-final-render",
+      "action": [
+        "click",
+        "1111",
+        "132"
+      ],
+      "state": {
+        "revision": 6,
+        "selection": [
+          "/World/Cube"
+        ],
+        "undo": 4,
+        "redo": 0,
+        "render": {
+          "error": "",
+          "frames": 87,
+          "presented": 23,
+          "publications": 7,
+          "request": 24
+        },
+        "preview": {
+          "error": "",
+          "frames": 40
+        },
+        "final": "complete"
+      },
+      "nodes": [
+        {
+          "path": "/World/Looks/Surface/Shader",
+          "position": [
+            0,
+            0
+          ],
+          "connections": {}
+        },
+        {
+          "path": "/World/Looks/Surface/constant",
+          "position": [
+            285.0,
+            60.0
+          ],
+          "connections": {}
+        }
+      ],
+      "before_sha256": "9836fad6c60e9cdec50071c7c143a21f582fe66629072e3804ca05880cba0977",
+      "after_sha256": "b587822173ee7fa6cd94e6b3e3bf8c60a6dd03031f0dc09c4e8c144c94a379cd"
+    },
+    {
+      "step": "32-final-long",
+      "action": [
+        "click",
+        "1111",
+        "132"
+      ],
+      "state": {
+        "revision": 6,
+        "selection": [
+          "/World/Cube"
+        ],
+        "undo": 4,
+        "redo": 0,
+        "render": {
+          "error": "",
+          "frames": 103,
+          "presented": 25,
+          "publications": 9,
+          "request": 25
+        },
+        "preview": {
+          "error": "",
+          "frames": 56
+        },
+        "final": "running"
+      },
+      "nodes": [
+        {
+          "path": "/World/Looks/Surface/Shader",
+          "position": [
+            0,
+            0
+          ],
+          "connections": {}
+        },
+        {
+          "path": "/World/Looks/Surface/constant",
+          "position": [
+            285.0,
+            60.0
+          ],
+          "connections": {}
+        }
+      ],
+      "before_sha256": "d29df3355ae56477bae13d219dbbe925dfed6c9275fad9817abd004c5e34ba6a",
+      "after_sha256": "40705d3bc140be67534f30962bfb2b4625f0f70a66aeb27a03a753cdde9514d1"
+    },
+    {
+      "step": "33-cancel-long",
+      "action": [
+        "click",
+        "1181",
+        "132"
+      ],
+      "state": {
+        "revision": 6,
+        "selection": [
+          "/World/Cube"
+        ],
+        "undo": 4,
+        "redo": 0,
+        "render": {
+          "error": "",
+          "frames": 103,
+          "presented": 25,
+          "publications": 9,
+          "request": 26
+        },
+        "preview": {
+          "error": "",
+          "frames": 56
+        },
+        "final": "cancelled"
+      },
+      "nodes": [
+        {
+          "path": "/World/Looks/Surface/Shader",
+          "position": [
+            0,
+            0
+          ],
+          "connections": {}
+        },
+        {
+          "path": "/World/Looks/Surface/constant",
+          "position": [
+            285.0,
+            60.0
+          ],
+          "connections": {}
+        }
+      ],
+      "before_sha256": "40705d3bc140be67534f30962bfb2b4625f0f70a66aeb27a03a753cdde9514d1",
+      "after_sha256": "870e20b6868442fa6db452a0ac4d95568f5763ea4c80c140db38881b04adc006"
+    },
+    {
+      "step": "38-save",
+      "action": [
+        "click",
+        "1081",
+        "730"
+      ],
+      "state": {
+        "revision": 6,
+        "selection": [],
+        "undo": 4,
+        "redo": 0,
+        "render": {
+          "error": "",
+          "frames": 120,
+          "presented": 27,
+          "publications": 10,
+          "request": 27
+        },
+        "preview": {
+          "error": "",
+          "frames": 64
+        },
+        "final": "cancelled"
+      },
+      "nodes": [
+        {
+          "path": "/World/Looks/Surface/Shader",
+          "position": [
+            0,
+            0
+          ],
+          "connections": {}
+        },
+        {
+          "path": "/World/Looks/Surface/constant",
+          "position": [
+            285.0,
+            60.0
+          ],
+          "connections": {}
+        }
+      ],
+      "before_sha256": "7664c6ca463531ae1064bf0cf96c94958861bbc2db2de9cba3670ad4ebe03ed9",
+      "after_sha256": "8b28b4a8301faa71824a574cc5bbd24844c2fe4ee31ce0a28c7673a4826ff62e"
+    },
+    {
+      "step": "46-input-bezier",
+      "action": [
+        "click",
+        "402",
+        "270"
+      ],
+      "state": {
+        "revision": 1,
+        "selection": [
+          "/World/Cube"
+        ],
+        "undo": 1,
+        "redo": 0,
+        "render": {
+          "error": "",
+          "frames": 25,
+          "presented": 4,
+          "publications": 2,
+          "request": 4
+        },
+        "preview": {
+          "error": "",
+          "frames": 0
+        },
+        "final": null
+      },
+      "nodes": [
+        {
+          "path": "/World/Looks/Surface/Shader",
+          "position": [
+            0,
+            0
+          ],
+          "connections": {
+            "base_color": "/World/Looks/Surface/constant.outputs:out"
+          }
+        },
+        {
+          "path": "/World/Looks/Surface/constant",
+          "position": [
+            285.0,
+            60.0
+          ],
+          "connections": {}
+        }
+      ],
+      "before_sha256": "573d8401f48faa98d931fbbb416f633621f9a25427c241d24b87a6cd2d2f3a61",
+      "after_sha256": "161e0c441c57643fb9b5ad824dc70e6764b845c6fc492253787206b3c80284fb"
+    },
+    {
+      "step": "47-node-drag",
+      "action": [
+        "drag",
+        "690",
+        "257",
+        "890",
+        "385",
+        "--steps",
+        "12"
+      ],
+      "state": {
+        "revision": 2,
+        "selection": [
+          "/World/Cube"
+        ],
+        "undo": 2,
+        "redo": 0,
+        "render": {
+          "error": "",
+          "frames": 33,
+          "presented": 5,
+          "publications": 3,
+          "request": 5
+        },
+        "preview": {
+          "error": "",
+          "frames": 0
+        },
+        "final": null
+      },
+      "nodes": [
+        {
+          "path": "/World/Looks/Surface/Shader",
+          "position": [
+            0,
+            0
+          ],
+          "connections": {
+            "base_color": "/World/Looks/Surface/constant.outputs:out"
+          }
+        },
+        {
+          "path": "/World/Looks/Surface/constant",
+          "position": [
+            485.0,
+            188.0
+          ],
+          "connections": {}
+        }
+      ],
+      "before_sha256": "161e0c441c57643fb9b5ad824dc70e6764b845c6fc492253787206b3c80284fb",
+      "after_sha256": "76e466bf2e5de195abdc0d1ae6cb31fc831de4fe42848c1c020bcf01243c84f3"
+    },
+    {
+      "step": "48-first-click",
+      "action": [
+        "click",
+        "614",
+        "550"
+      ],
+      "state": {
+        "revision": 0,
+        "selection": [
+          "/World/Cube"
+        ],
+        "undo": 0,
+        "redo": 0,
+        "render": {
+          "error": "",
+          "frames": 17,
+          "presented": 3,
+          "publications": 1,
+          "request": 3
+        },
+        "preview": {
+          "error": "",
+          "frames": 0
+        },
+        "final": null
+      },
+      "nodes": [],
+      "before_sha256": "1c3d0ea1ae663bef26b6e02323ffa85f86d4bc02f1daecae131a5543a3a5299c",
+      "after_sha256": "05abc619c5d3ad9972905892051473836d5eef8548add274b9f762da670a051a"
+    },
+    {
+      "step": "50-modal-no-clickthrough",
+      "action": [
+        "click",
+        "535",
+        "730"
+      ],
+      "state": {
+        "revision": 0,
+        "selection": [
+          "/World/Cube"
+        ],
+        "undo": 0,
+        "redo": 0,
+        "render": {
+          "error": "",
+          "frames": 17,
+          "presented": 3,
+          "publications": 1,
+          "request": 3
+        },
+        "preview": {
+          "error": "",
+          "frames": 0
+        },
+        "final": null
+      },
+      "nodes": [],
+      "before_sha256": "a568a38353b65090b5760f456bb49eef4817bb078dee80b96570ededd7bed752",
+      "after_sha256": "2f00e161dd7ca8b592d68f74c6b2add28b7b95ee6cf373e5e536c2d9be147533"
+    },
+    {
+      "step": "52-property-drag",
+      "action": [
+        "drag",
+        "1318",
+        "402",
+        "1328",
+        "402",
+        "--steps",
+        "5"
+      ],
+      "state": {
+        "revision": 1,
+        "selection": [
+          "/World/Cube"
+        ],
+        "undo": 1,
+        "redo": 0,
+        "render": {
+          "error": "",
+          "frames": 25,
+          "presented": 4,
+          "publications": 2,
+          "request": 4
+        },
+        "preview": {
+          "error": "",
+          "frames": 0
+        },
+        "final": null
+      },
+      "nodes": [],
+      "before_sha256": "fc339e06f741125aa2fb24903a5badabfc0f3d0b2f100a2fddcb8e73244a3542",
+      "after_sha256": "e1efde4d97755b708e6d36a78c7579d6db063625030575e6d4f5c9b43bf279fe"
+    },
+    {
+      "step": "53-property-undo",
+      "action": [
+        "click",
+        "718",
+        "44"
+      ],
+      "state": {
+        "revision": 2,
+        "selection": [
+          "/World/Cube"
+        ],
+        "undo": 0,
+        "redo": 1,
+        "render": {
+          "error": "",
+          "frames": 33,
+          "presented": 6,
+          "publications": 3,
+          "request": 6
+        },
+        "preview": {
+          "error": "",
+          "frames": 0
+        },
+        "final": null
+      },
+      "nodes": [],
+      "before_sha256": "e1efde4d97755b708e6d36a78c7579d6db063625030575e6d4f5c9b43bf279fe",
+      "after_sha256": "f2becd26aec1d7bcca0ba6984792e180a29c2fe4c06e54cf8820cbc75489957a"
+    },
+    {
+      "step": "55-node-drag-latest",
+      "action": [
+        "drag",
+        "399",
+        "197",
+        "589",
+        "296",
+        "--steps",
+        "10"
+      ],
+      "state": {
+        "revision": 3,
+        "selection": [
+          "/World/Cube"
+        ],
+        "undo": 1,
+        "redo": 0,
+        "render": {
+          "error": "",
+          "frames": 41,
+          "presented": 7,
+          "publications": 4,
+          "request": 7
+        },
+        "preview": {
+          "error": "",
+          "frames": 0
+        },
+        "final": null
+      },
+      "nodes": [
+        {
+          "path": "/World/Looks/Surface/Shader",
+          "position": [
+            190.0,
+            99.0
+          ],
+          "connections": {}
+        }
+      ],
+      "before_sha256": "57306335fef22418a86074737b44e8b4d0a84b9fc3dd3c06dd541c2b741ffedc",
+      "after_sha256": "42f4100e03b2f49e8523bd0a09b85a787d58dd3e5fae5ae1dbdd1616247fe8e1"
+    },
+    {
+      "step": "56-preview-latest",
+      "action": [
+        "click",
+        "1121",
+        "518"
+      ],
+      "state": {
+        "revision": 3,
+        "selection": [
+          "/World/Cube"
+        ],
+        "undo": 1,
+        "redo": 0,
+        "render": {
+          "error": "",
+          "frames": 41,
+          "presented": 7,
+          "publications": 4,
+          "request": 7
+        },
+        "preview": {
+          "error": "",
+          "frames": 8
+        },
+        "final": null
+      },
+      "nodes": [
+        {
+          "path": "/World/Looks/Surface/Shader",
+          "position": [
+            190.0,
+            99.0
+          ],
+          "connections": {}
+        }
+      ],
+      "before_sha256": "42f4100e03b2f49e8523bd0a09b85a787d58dd3e5fae5ae1dbdd1616247fe8e1",
+      "after_sha256": "8cbb60c30611d0075946b796747e779c7b436115d06bc810809702225d42c5a8"
+    }
+  ]
+}

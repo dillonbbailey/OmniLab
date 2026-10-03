@@ -25,7 +25,7 @@ The original plan was based on source, schema and documentation inspection. P0�
 ```mermaid
 flowchart TD
     Qt[Qt / PySide6 frontend] --> API[Shared command and query API]
-    OV[Standalone ovUI frontend, later] --> API
+    OV[Standalone ovUI frontend] --> API
     Console[Python Console / MCP] --> API
     API --> Core[Document, graph, selection and undo services]
     Core --> USD[OpenUSD authoring service: Usd / Sdf / UsdShade]
@@ -75,7 +75,7 @@ src/omnilab/
   backends/ovrtx/       ovstage publication, stepping, picking, readback
   ipc/                  versioned messages, revisions, shared frame buffers
   frontends/qt/         Lunatic-derived widgets and presenters
-  frontends/ovui/       later frontend and widget adapters
+  frontends/ovui/       standalone frontend and widget adapters
   automation/           console and MCP command adapters
   workers/              authoring, render and image-I/O entry points
 tests/
@@ -172,6 +172,8 @@ P0–P5 implementations and their acceptance evidence are tracked in [P0–P2 st
 The sequence is dependency driven. Material catalog work can begin after P0 while the viewport is completed; final RenderView still depends on snapshot and output correctness. Do not estimate full delivery from a renderer demo: Lunatic already contains substantial composition, image inspection and graph behavior. Produce calendar estimates after P0 exposes the compatibility and performance work.
 
 ## ovUI second frontend
+
+**P6 core implementation is now available:** `omnilab-ovui`, native stage/property adapters, material canvas/preview, RenderView, console and settings. It uses the shared document and history, with independent native input evidence and Qt regression checks. See [P6 status and remaining UI parity](P6_STATUS.md).
 
 Standalone ovUI exists and does not require a Kit application. Its supplied widgets include scene, properties, layers, content and viewport components, with adapter interfaces. That makes it useful for the second frontend. [ovUI overview](https://github.com/NVIDIA-Omniverse/ovui)
 

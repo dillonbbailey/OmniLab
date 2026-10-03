@@ -1,8 +1,8 @@
 # OmniLab
 
-A Qt USD editor using NVIDIA ovstage and ovRTX, with MaterialX/OpenPBR and native MDL material graphs, interactive previews and a final RenderView. The P2–P5 core workflows are implemented; [release-parity limits](docs/P2_P5_STATUS.md) remain explicit.
+A USD editor with Qt and optional standalone ovUI frontends using NVIDIA ovstage and ovRTX, MaterialX/OpenPBR and native MDL material graphs, interactive previews and a final RenderView. The P2–P6 core workflows are implemented; [Qt release-parity limits](docs/P2_P5_STATUS.md) and [ovUI status](docs/P6_STATUS.md) remain explicit.
 
-The agreed direction is **Qt first, ovUI second**, with one shared document/command core. OpenUSD owns editable documents and composition; isolated workers own **ovstage + ovRTX**. **ovUI is P6** and **MoonRay graph conversion is P7, low priority**.
+The agreed direction is **Qt first, ovUI second**, with one shared document/command core. OpenUSD owns editable documents and composition; isolated workers own **ovstage + ovRTX**. **MoonRay graph conversion is P7, low priority**.
 
 ## Run
 
@@ -14,6 +14,15 @@ uv sync --python 3.12 --extra rtx --extra dev
 .venv/bin/omnilab /path/to/scene.usda
 .venv/bin/omnilab --no-render --demo
 ```
+
+To install and launch the optional P6 frontend:
+
+```bash
+uv sync --extra rtx --extra dev --extra ovui
+.venv/bin/omnilab-ovui --demo
+```
+
+[ovUI launch, controls, validation and remaining parity work](docs/P6_STATUS.md). The controls described below refer to Qt.
 
 The editor retains USD layers, edit targets, transforms, typed properties, composition arcs, variants, bindings, undo/redo and composition-preserving saves. `.omnilab` projects also retain session layers, mute/load state, material tabs/studios and renderer settings. Asset publishing is a separate composed-content operation.
 

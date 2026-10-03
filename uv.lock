@@ -9,6 +9,15 @@ supported-markers = [
 ]
 
 [[package]]
+name = "annotated-doc"
+version = "0.0.5"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/5a/8e/38aa427ed5402449e226975b649c5dc73ccadfefeb95e6aecb8f8ea4b6b6/annotated_doc-0.0.5.tar.gz", hash = "sha256:c7e58ce09192557605d8bbd92836d7e1d520ac9580096042c0bfd197efacf1bb", size = 10758, upload-time = "2026-07-28T13:50:58.129Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/3e/30/e900b21425a860e195f32e37657aa1f7c7f2b1bfb26f03ca209b90933c06/annotated_doc-0.0.5-py3-none-any.whl", hash = "sha256:117bac03a25ede5df5440e855b32d556049ca169ead221505badf432fed4b101", size = 5302, upload-time = "2026-07-28T13:50:57.239Z" },
+]
+
+[[package]]
 name = "annotated-types"
 version = "0.8.0"
 source = { registry = "https://pypi.org/simple" }
@@ -91,6 +100,23 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/4f/87/ef344a9e616871f2519c22d6afcda79ddd5d35e9592d95eb6e677608d055/cryptography-50.0.2-cp39-abi3-manylinux_2_28_x86_64.whl", hash = "sha256:f21e8a22c8605750c7af886bab299a363721264061b4ac0a30efb73cfd58efc5", size = 4781387, upload-time = "2026-09-30T15:29:32.605Z" },
     { url = "https://files.pythonhosted.org/packages/40/cf/6b5c8e2fd9202d98988ab7cb5cc5c991704c4ad55f492ff408e4969f83f1/cryptography-50.0.2-cp39-abi3-manylinux_2_34_x86_64.whl", hash = "sha256:1981f1db4630889b9ef7803fadef12b056f428cb6b85c27ba57b774793b6093c", size = 4780973, upload-time = "2026-09-30T15:29:41.251Z" },
     { url = "https://files.pythonhosted.org/packages/d4/aa/f3f6e0de7e6253b8baa8b2d8fb9d50924fa75cee3d4624bd4bc1208ee923/cryptography-50.0.2-cp39-abi3-musllinux_1_2_x86_64.whl", hash = "sha256:ce47f66801c20ec6c6632453bb5960fe38939e9306970b48b3a5a26de7745d94", size = 5058280, upload-time = "2026-09-30T15:29:44.827Z" },
+]
+
+[[package]]
+name = "fastapi"
+version = "0.142.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "annotated-doc" },
+    { name = "opentelemetry-api" },
+    { name = "pydantic" },
+    { name = "starlette" },
+    { name = "typing-extensions" },
+    { name = "typing-inspection" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/56/4f/f7c30a73127e0a8bbffe788369b8359e530b01ae06e2757936fa35bc5e6d/fastapi-0.142.2.tar.gz", hash = "sha256:06366626f2e70576367714d9ab2fe8472e6c8456dba69b399f9f797ab5e92570", size = 466721, upload-time = "2026-09-30T09:51:11.277Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a0/b6/78aaf9141fb46742928c113f3cf6ef2259d538cb02b604b7656c1dc9883c/fastapi-0.142.2-py3-none-any.whl", hash = "sha256:bd5f4d81f1e93a88bcd77caf4dfe3c2dbffc3805407a0007e9a114c18b3a670b", size = 144409, upload-time = "2026-09-30T09:51:09.8Z" },
 ]
 
 [[package]]
@@ -247,6 +273,22 @@ dev = [
 mcp = [
     { name = "mcp" },
 ]
+ovui = [
+    { name = "ovui" },
+    { name = "ovui-data-adapters-common" },
+    { name = "ovui-data-adapters-openusd" },
+    { name = "ovui-data-adapters-services" },
+    { name = "ovui-widgets-common" },
+    { name = "ovui-widgets-content" },
+    { name = "ovui-widgets-property" },
+    { name = "ovui-widgets-stage" },
+]
+ovui-qa = [
+    { name = "fastapi" },
+    { name = "httpx" },
+    { name = "python-multipart" },
+    { name = "uvicorn" },
+]
 rtx = [
     { name = "ovrtx" },
     { name = "ovstage" },
@@ -254,18 +296,30 @@ rtx = [
 
 [package.metadata]
 requires-dist = [
+    { name = "fastapi", marker = "extra == 'ovui-qa'", specifier = "==0.142.2" },
+    { name = "httpx", marker = "extra == 'ovui-qa'", specifier = "==0.28.1" },
     { name = "materialx", specifier = "==1.39.5" },
     { name = "mcp", marker = "extra == 'mcp'", specifier = "==1.30.0" },
     { name = "numpy", specifier = "==2.2.6" },
     { name = "openimageio", specifier = "==3.1.18.0" },
     { name = "ovrtx", marker = "extra == 'rtx'", specifier = "==0.5.0.377615" },
     { name = "ovstage", marker = "extra == 'rtx'", specifier = "==0.2.0.377349" },
+    { name = "ovui", marker = "extra == 'ovui'", specifier = "==0.2.0" },
+    { name = "ovui-data-adapters-common", marker = "extra == 'ovui'", git = "https://github.com/NVIDIA-Omniverse/ovui.git?subdirectory=ovui-data-adapters%2Fdist%2Fcommon&rev=a81db103a4d99ff2d75368a444e167889536ff42" },
+    { name = "ovui-data-adapters-openusd", marker = "extra == 'ovui'", git = "https://github.com/NVIDIA-Omniverse/ovui.git?subdirectory=ovui-data-adapters%2Fdist%2Fopenusd&rev=a81db103a4d99ff2d75368a444e167889536ff42" },
+    { name = "ovui-data-adapters-services", marker = "extra == 'ovui'", git = "https://github.com/NVIDIA-Omniverse/ovui.git?subdirectory=ovui-data-adapters%2Fdist%2Fservices&rev=a81db103a4d99ff2d75368a444e167889536ff42" },
+    { name = "ovui-widgets-common", marker = "extra == 'ovui'", git = "https://github.com/NVIDIA-Omniverse/ovui.git?subdirectory=ovui-widgets%2Fdist%2Fcommon&rev=a81db103a4d99ff2d75368a444e167889536ff42" },
+    { name = "ovui-widgets-content", marker = "extra == 'ovui'", git = "https://github.com/NVIDIA-Omniverse/ovui.git?subdirectory=ovui-widgets%2Fdist%2Fcontent&rev=a81db103a4d99ff2d75368a444e167889536ff42" },
+    { name = "ovui-widgets-property", marker = "extra == 'ovui'", git = "https://github.com/NVIDIA-Omniverse/ovui.git?subdirectory=ovui-widgets%2Fdist%2Fproperty&rev=a81db103a4d99ff2d75368a444e167889536ff42" },
+    { name = "ovui-widgets-stage", marker = "extra == 'ovui'", git = "https://github.com/NVIDIA-Omniverse/ovui.git?subdirectory=ovui-widgets%2Fdist%2Fstage&rev=a81db103a4d99ff2d75368a444e167889536ff42" },
     { name = "pillow", specifier = "==12.1.1" },
     { name = "pyside6-essentials", specifier = "==6.8.3" },
     { name = "pytest", marker = "extra == 'dev'", specifier = "==8.4.2" },
+    { name = "python-multipart", marker = "extra == 'ovui-qa'", specifier = "==0.0.32" },
     { name = "usd-core", specifier = "==26.8" },
+    { name = "uvicorn", marker = "extra == 'ovui-qa'", specifier = "==0.54.0" },
 ]
-provides-extras = ["rtx", "dev", "mcp"]
+provides-extras = ["rtx", "ovui", "dev", "ovui-qa", "mcp"]
 
 [[package]]
 name = "openimageio"
@@ -280,6 +334,18 @@ wheels = [
 ]
 
 [[package]]
+name = "opentelemetry-api"
+version = "1.45.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/1f/dc/e12c1fe1ed8a7b7149777127b1a0e12ce5bd5a81d97408bedc2128c260f5/opentelemetry_api-1.45.0.tar.gz", hash = "sha256:711ede81773c8025c2c03dac0450bc89f3d30aea6eabcc815c570d4e35a963f7", size = 72115, upload-time = "2026-09-25T12:32:28.399Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/44/b9/040d1a1c7836922828e6480cd2366bb8fe0ebf75b413d2bb51a9b0e7f78f/opentelemetry_api-1.45.0-py3-none-any.whl", hash = "sha256:80e068aba7cd56c8b58512d6a36f8d25cb1dfaa0c0a4cc1c938ccf9f362d9cb3", size = 60020, upload-time = "2026-09-25T12:32:03.192Z" },
+]
+
+[[package]]
 name = "ovrtx"
 version = "0.5.0.377615"
 source = { registry = "https://pypi.org/simple" }
@@ -291,6 +357,74 @@ version = "0.2.0.377349"
 source = { registry = "https://pypi.org/simple" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/81/b7/333b3682da5125b9222ada4a11f2a998b922e005ace0a081c088eda731b2/ovstage-0.2.0.377349-py3-none-manylinux_2_35_x86_64.whl", hash = "sha256:092a34c0054664b90a32c07209647bd02e6f774a705295d8c460813940153f5b", size = 70881630, upload-time = "2026-09-08T20:10:34.164Z" },
+]
+
+[[package]]
+name = "ovui"
+version = "0.2.0"
+source = { registry = "https://pypi.org/simple" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/1f/30/e6792479ff7b95e76de0fc088aab2227eb14013cd7d6dafb0ea4b170d37b/ovui-0.2.0-cp312-cp312-manylinux_2_35_x86_64.whl", hash = "sha256:de8656af7c17b1d2ae68726e8b918796da299d3e372a417df3baf1ac6863f07b", size = 20279891, upload-time = "2026-07-22T00:30:49.987Z" },
+]
+
+[[package]]
+name = "ovui-data-adapters-common"
+version = "0.2.0"
+source = { git = "https://github.com/NVIDIA-Omniverse/ovui.git?subdirectory=ovui-data-adapters%2Fdist%2Fcommon&rev=a81db103a4d99ff2d75368a444e167889536ff42#a81db103a4d99ff2d75368a444e167889536ff42" }
+dependencies = [
+    { name = "numpy" },
+]
+
+[[package]]
+name = "ovui-data-adapters-openusd"
+version = "0.2.0"
+source = { git = "https://github.com/NVIDIA-Omniverse/ovui.git?subdirectory=ovui-data-adapters%2Fdist%2Fopenusd&rev=a81db103a4d99ff2d75368a444e167889536ff42#a81db103a4d99ff2d75368a444e167889536ff42" }
+dependencies = [
+    { name = "numpy" },
+    { name = "ovui-data-adapters-common" },
+]
+
+[[package]]
+name = "ovui-data-adapters-services"
+version = "0.2.0"
+source = { git = "https://github.com/NVIDIA-Omniverse/ovui.git?subdirectory=ovui-data-adapters%2Fdist%2Fservices&rev=a81db103a4d99ff2d75368a444e167889536ff42#a81db103a4d99ff2d75368a444e167889536ff42" }
+dependencies = [
+    { name = "ovui-data-adapters-common" },
+]
+
+[[package]]
+name = "ovui-widgets-common"
+version = "0.2.0"
+source = { git = "https://github.com/NVIDIA-Omniverse/ovui.git?subdirectory=ovui-widgets%2Fdist%2Fcommon&rev=a81db103a4d99ff2d75368a444e167889536ff42#a81db103a4d99ff2d75368a444e167889536ff42" }
+dependencies = [
+    { name = "ovui" },
+    { name = "ovui-data-adapters-common" },
+]
+
+[[package]]
+name = "ovui-widgets-content"
+version = "0.2.0"
+source = { git = "https://github.com/NVIDIA-Omniverse/ovui.git?subdirectory=ovui-widgets%2Fdist%2Fcontent&rev=a81db103a4d99ff2d75368a444e167889536ff42#a81db103a4d99ff2d75368a444e167889536ff42" }
+dependencies = [
+    { name = "ovui-widgets-common" },
+]
+
+[[package]]
+name = "ovui-widgets-property"
+version = "0.2.0"
+source = { git = "https://github.com/NVIDIA-Omniverse/ovui.git?subdirectory=ovui-widgets%2Fdist%2Fproperty&rev=a81db103a4d99ff2d75368a444e167889536ff42#a81db103a4d99ff2d75368a444e167889536ff42" }
+dependencies = [
+    { name = "ovui-data-adapters-common" },
+    { name = "ovui-widgets-common" },
+]
+
+[[package]]
+name = "ovui-widgets-stage"
+version = "0.2.0"
+source = { git = "https://github.com/NVIDIA-Omniverse/ovui.git?subdirectory=ovui-widgets%2Fdist%2Fstage&rev=a81db103a4d99ff2d75368a444e167889536ff42#a81db103a4d99ff2d75368a444e167889536ff42" }
+dependencies = [
+    { name = "ovui-data-adapters-common" },
+    { name = "ovui-widgets-common" },
 ]
 
 [[package]]

@@ -2,6 +2,8 @@
 
 Research date: 2026-10-02. The user chose Qt first and standalone ovUI as a second frontend. The initial research produced the plan and settings catalog. Implementation followed in the same session; [P0–P2 status](P0_P2_STATUS.md), [runtime manifest](evidence/p0-runtime.json) and [desktop replay](evidence/qt-replay.json) record the new GPU evidence. The source Lunatic checkout and external SDK installations were not modified.
 
+P6 adds [standalone ovUI implementation and acceptance](P6_STATUS.md) with [native input/GPU evidence](evidence/ovui-validation.json), shared document round trips and fresh Qt regression replays. Its pinned NVIDIA widgets are installed dependencies; the inspected upstream checkout remains in ignored `.cache`.
+
 ## Local sources
 
 | Source | Identity | Use |

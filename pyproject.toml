@@ -1,7 +1,7 @@
 [project]
 name = "omnilab"
 version = "0.1.0"
-description = "A Qt USD editor with an isolated NVIDIA ovRTX viewport"
+description = "A USD editor with Qt and ovUI frontends and an isolated NVIDIA ovRTX viewport"
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "PySide6-Essentials==6.8.3",
@@ -14,13 +14,25 @@ dependencies = [
 
 [project.optional-dependencies]
 rtx = ["ovrtx==0.5.0.377615", "ovstage==0.2.0.377349"]
+ovui = [
+    "ovui==0.2.0",
+    "ovui-data-adapters-common @ git+https://github.com/NVIDIA-Omniverse/ovui.git@a81db103a4d99ff2d75368a444e167889536ff42#subdirectory=ovui-data-adapters/dist/common",
+    "ovui-data-adapters-services @ git+https://github.com/NVIDIA-Omniverse/ovui.git@a81db103a4d99ff2d75368a444e167889536ff42#subdirectory=ovui-data-adapters/dist/services",
+    "ovui-data-adapters-openusd @ git+https://github.com/NVIDIA-Omniverse/ovui.git@a81db103a4d99ff2d75368a444e167889536ff42#subdirectory=ovui-data-adapters/dist/openusd",
+    "ovui-widgets-common @ git+https://github.com/NVIDIA-Omniverse/ovui.git@a81db103a4d99ff2d75368a444e167889536ff42#subdirectory=ovui-widgets/dist/common",
+    "ovui-widgets-stage @ git+https://github.com/NVIDIA-Omniverse/ovui.git@a81db103a4d99ff2d75368a444e167889536ff42#subdirectory=ovui-widgets/dist/stage",
+    "ovui-widgets-property @ git+https://github.com/NVIDIA-Omniverse/ovui.git@a81db103a4d99ff2d75368a444e167889536ff42#subdirectory=ovui-widgets/dist/property",
+    "ovui-widgets-content @ git+https://github.com/NVIDIA-Omniverse/ovui.git@a81db103a4d99ff2d75368a444e167889536ff42#subdirectory=ovui-widgets/dist/content",
+]
 dev = ["pytest==8.4.2"]
+ovui-qa = ["fastapi==0.142.2", "uvicorn==0.54.0", "httpx==0.28.1", "python-multipart==0.0.32"]
 mcp = [
     "mcp==1.30.0",
 ]
 
 [project.scripts]
 omnilab = "omnilab.app:main"
+omnilab-ovui = "omnilab.frontends.ovui.app:main"
 omnilab-probe = "omnilab.probe:main"
 omnilab-mcp = "omnilab.automation.mcp_server:main"
 
@@ -37,3 +49,6 @@ markers = ["gpu: requires a supported NVIDIA RTX GPU and the pinned runtime"]
 
 [tool.uv]
 environments = ["sys_platform == 'linux' and platform_machine == 'x86_64'"]
+
+[tool.hatch.metadata]
+allow-direct-references = true
