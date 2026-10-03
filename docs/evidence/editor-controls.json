@@ -7,6 +7,15 @@
     "R"
   ],
   "settings_dialog": true,
+  "distinct_gizmos": [
+    "translate arrows",
+    "rotation rings",
+    "scale boxes"
+  ],
+  "orientation_gizmo_preference": true,
+  "wireframe_camera_guide": true,
+  "quaternion_wxyz_normalized": true,
+  "single_matrix_apply_and_ring_drag_undo": true,
   "property_type_toggle": true,
   "timeline_mouse_and_keyboard_scrub": true,
   "fractional_range": true,

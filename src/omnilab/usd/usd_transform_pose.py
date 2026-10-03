@@ -161,8 +161,39 @@ def write_local_matrix(prim, target, frame, mode, representation="matrix", key_c
     return str(prim.GetPath())
 
 
-def write_pose(prim, values, frame=0, mode="default", space="world", representation="trs"):
+def write_single_matrix(prim, target, frame, mode):
+    """Replace the active op stack, retaining its default and authored key poses."""
+    target = checked_matrix(rows(target))
+    xform, _, _ = transform_ops(prim)
+    reset = xform.GetResetXformStack()
+    default = checked_matrix(rows(xform.GetLocalTransformation()))
+    samples = {t: checked_matrix(rows(xform.GetLocalTransformation(t))) for t in xform.GetTimeSamples()}
+    if mode == 'frame':
+        samples[frame] = target
+    else:
+        default = target
+    attr = prim.GetAttribute(MATRIX_NAME)
+    if attr and attr.GetTypeName() != Sdf.ValueTypeNames.Matrix4d:
+        raise ValueError('The output matrix attribute must have matrix4d type.')
+    op = UsdGeom.XformOp(attr) if attr else xform.AddTransformOp(UsdGeom.XformOp.PrecisionDouble, 'studioMatrix')
+    attr = op.GetAttr()
+    attr.Block()  # Replace stale sample maps, including weaker-layer opinions.
+    if not op.Set(default):
+        raise ValueError('USD could not author the combined transform matrix.')
+    for time, value in sorted(samples.items()):
+        if not op.Set(value, time):
+            raise ValueError('USD could not author a transform matrix sample.')
+    if not xform.SetXformOpOrder([op], reset):
+        raise ValueError('USD could not set the single-matrix transform order.')
+    if [str(item.GetOpName()) for item in xform.GetOrderedXformOps()] != [MATRIX_NAME]:
+        raise ValueError('The transform order is overridden; choose a stronger edit target.')
+    return str(prim.GetPath())
+
+
+def write_pose(prim, values, frame=0, mode="default", space="world", representation="trs", *, output_as_matrix=False):
     options(space, representation)
+    if type(output_as_matrix) is not bool:
+        raise ValueError('Output as matrix must be on or off.')
     if type(frame) not in (int, float) or not math.isfinite(frame) or mode not in ("default", "frame"):
         raise ValueError("Choose a valid transform frame and editing mode.")
     xform, _, adjustment = transform_ops(prim)
@@ -172,14 +203,13 @@ def write_pose(prim, values, frame=0, mode="default", space="world", representat
     target = local * parent if space == "world" else local
     if isinstance(values, dict) and set(values) == {"matrix"}:
         target = checked_matrix(values["matrix"])
-        representation = "matrix"
         key_channels = None
     else:
         edits = checked_values(values)
         current, shear = decompose(target)
         if shear and set(edits) != {"translate"}:
             raise ValueError("This pose contains shear. Use Matrix editing to preserve it.")
-        if space == "local" and representation in ("trs", "euler") and not adjustment and not shear:
+        if space == "local" and representation in ("trs", "euler") and not adjustment and not shear and not output_as_matrix:
             return write_transform(prim, edits, frame, mode, "euler" if representation == "euler" else "quaternion")
         if "rotateXYZ" in edits:
             edits["orient"] = quaternion_from_euler(edits.pop("rotateXYZ"))
@@ -191,6 +221,8 @@ def write_pose(prim, values, frame=0, mode="default", space="world", representat
         key_channels = set(edits)
     if space == "world":
         target = target * inverse(parent, "the parent transform")
+    if output_as_matrix:
+        return write_single_matrix(prim, target, frame, mode)
     return write_local_matrix(prim, target, frame, mode, representation, key_channels)
 
 

@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, Q
     QTreeWidget, QTreeWidgetItem, QTabWidget, QTableWidget, QTableWidgetItem, QLineEdit,
     QLabel, QPushButton, QComboBox, QSpinBox, QDoubleSpinBox, QCheckBox, QDockWidget,
     QPlainTextEdit, QFileDialog, QMessageBox, QInputDialog, QMenu, QDialog, QDialogButtonBox,
-    QAbstractItemView, QFormLayout, QGroupBox, QScrollArea, QFrame, QSizePolicy)
+    QAbstractItemView, QFormLayout, QGroupBox, QScrollArea, QFrame, QSizePolicy, QStackedWidget)
 from pxr import Gf, Sdf, Usd, UsdGeom
 
 from omnilab.core.document import Document
@@ -20,6 +20,7 @@ from omnilab.render.snapshot import publish, MODES
 from omnilab.usd.usd_editing import PRIM_TYPES, property_info
 from omnilab.usd.usd_layers import layer_entries, layer_text
 from omnilab.usd.usd_transform_pose import pose_info
+from omnilab.usd.usd_transforms import quaternion_from_euler, euler_from_quaternion, checked_values
 from omnilab.usd.usd_inspection import property_rows
 from omnilab.usd.usd_variants import variant_choices
 from .renderer import RendererBridge
@@ -214,12 +215,13 @@ class MainWindow(QMainWindow):
         self.camera_edit.setToolTip('Navigation edits the selected USD camera. A drag is one undo step; Escape cancels it.')
         controls.addWidget(self.camera_edit)
         self.viewport = Viewport()
+        self.viewport.show_orientation_gizmo = self.application_settings.show_orientation_gizmo()
         center_layout.addWidget(self.viewport, 1)
         splitter.addWidget(center)
         self.viewport.cameraChanged.connect(self.navigation_changed)
         self.viewport.resized.connect(lambda: self.schedule_view())
         self.viewport.pickRequested.connect(self.pick)
-        self.viewport.transformCommitted.connect(lambda data: self.safe(lambda: self.execute("set_transform", data)))
+        self.viewport.transformCommitted.connect(lambda data: self.safe(lambda: self.commit_viewport_transform(data)))
         self.viewport.transformPreviewChanged.connect(lambda data: self.safe(lambda: self.preview_transform(data)))
         self.viewport.cameraCommitted.connect(lambda data: self.safe(lambda: self.execute('set_camera_view', data)))
         self.camera_edit.toggled.connect(lambda value: setattr(self.viewport, 'edit_camera', value))
@@ -252,24 +254,55 @@ class MainWindow(QMainWindow):
         form = QFormLayout(transform)
         form.setRowWrapPolicy(QFormLayout.WrapLongRows)
         self.transform_fields = {}
-        for label, key in (("Translate", "translate"), ("Rotate XYZ", "rotateXYZ"), ("Scale", "scale")):
+        def transform_row(key, components, decimals=4):
             row = QWidget()
             row.setMinimumWidth(190)
             row_layout = QHBoxLayout(row)
             row_layout.setContentsMargins(0, 0, 0, 0)
             fields = []
-            for index in range(3):
+            for component in components:
                 field = QDoubleSpinBox()
                 field.setRange(-1e10, 1e10)
-                field.setDecimals(4)
+                field.setDecimals(decimals)
                 field.setSingleStep(.1)
                 field.setKeyboardTracking(False)
                 field.setMinimumWidth(0)
                 field.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
-                row_layout.addWidget(field)
+                field.setAccessibleName(key + ' ' + component)
+                if key == 'orient':
+                    cell = QWidget()
+                    cell_layout = QVBoxLayout(cell)
+                    cell_layout.setContentsMargins(0, 0, 0, 0)
+                    cell_layout.setSpacing(1)
+                    label = QLabel(component)
+                    label.setAlignment(Qt.AlignCenter)
+                    cell_layout.addWidget(label)
+                    cell_layout.addWidget(field)
+                    row_layout.addWidget(cell, 1)
+                else:
+                    row_layout.addWidget(field, 1)
                 fields.append(field)
             self.transform_fields[key] = fields
-            form.addRow(label, row)
+            return row
+        form.addRow('Translate', transform_row('translate', 'XYZ'))
+        rotation_heading = QWidget()
+        rotation_layout = QHBoxLayout(rotation_heading)
+        rotation_layout.setContentsMargins(0, 0, 0, 0)
+        self.rotation_label = QLabel('Rotate XYZ')
+        rotation_layout.addWidget(self.rotation_label)
+        self.quaternion_check = QCheckBox('Quaternion')
+        self.quaternion_check.setToolTip('Edit rotation as W, X, Y, Z. Nonzero quaternions are normalized on Apply.')
+        rotation_layout.addWidget(self.quaternion_check)
+        self.rotation_fields = QStackedWidget()
+        self.rotation_fields.addWidget(transform_row('rotateXYZ', 'XYZ'))
+        self.rotation_fields.addWidget(transform_row('orient', 'WXYZ', 12))
+        form.addRow(rotation_heading, self.rotation_fields)
+        form.addRow('Scale', transform_row('scale', 'XYZ'))
+        self.quaternion_check.toggled.connect(lambda enabled: self.safe(lambda: self.rotation_mode_changed(enabled)))
+        self.matrix_output = QCheckBox('Output as matrix')
+        self.matrix_output.setToolTip('Apply and viewport drags write one combined matrix4d xform op. Existing key poses are retained; interpolation between keys can change.')
+        self.matrix_output.toggled.connect(self.store_transform_preferences)
+        form.addRow(self.matrix_output)
         self.time_mode = QComboBox()
         self.time_mode.addItems(["Default value", "Key at frame"])
         self.time_mode.currentIndexChanged.connect(lambda i: setattr(self.viewport, "edit_time", "frame" if i else "default"))
@@ -403,6 +436,11 @@ class MainWindow(QMainWindow):
         if not document.view:
             self.viewport.camera.frame(document.bounds())
         self.viewport.scene_camera_path = document.view.get("scene_camera", "")
+        transform_options = document.view.get('transform_authoring', {})
+        with QSignalBlocker(self.quaternion_check), QSignalBlocker(self.matrix_output):
+            self.quaternion_check.setChecked(bool(transform_options.get('quaternion', False)))
+            self.matrix_output.setChecked(bool(transform_options.get('output_as_matrix', False)))
+        self.update_rotation_ui()
         preferences = document.view.get("viewport", {})
         mode = preferences.get("mode", MODES[0])
         self.mode.setCurrentText(mode if mode in MODES[:2] else MODES[0])
@@ -667,9 +705,11 @@ class MainWindow(QMainWindow):
         path = self.selected_path()
         prim = self.document.stage.GetPrimAtPath(path)
         self.selection_label.setText(path)
-        info = pose_info(prim, self.document.frame, space=self.space.currentText().lower(), representation="euler") if prim and not prim.IsPseudoRoot() else {}
+        representation = 'trs' if self.quaternion_check.isChecked() else 'euler'
+        info = pose_info(prim, self.document.frame, space=self.space.currentText().lower(), representation=representation) if prim and not prim.IsPseudoRoot() else {}
         for key, fields in self.transform_fields.items():
-            values = info.get("values", {}).get(key, [1, 1, 1] if key == "scale" else [0, 0, 0])
+            default = [1, 1, 1] if key == 'scale' else [1, 0, 0, 0] if key == 'orient' else [0, 0, 0]
+            values = info.get("values", {}).get(key, default)
             for field, value in zip(fields, values):
                 field.setEnabled(info.get("editable", False))
                 field.setValue(value)
@@ -712,6 +752,8 @@ class MainWindow(QMainWindow):
     def open_application_settings(self):
         dialog = ApplicationSettingsDialog(self.application_settings, self)
         if dialog.exec() == QDialog.Accepted:
+            self.viewport.show_orientation_gizmo = self.application_settings.show_orientation_gizmo()
+            self.viewport.update()
             self.refresh_properties()
             editor = getattr(self, 'material_editor', None)
             if editor:
@@ -754,10 +796,41 @@ class MainWindow(QMainWindow):
         editor.current_changed()
 
     def apply_transform(self):
-        values = {key: [field.value() for field in fields] for key, fields in self.transform_fields.items()}
+        rotation = 'orient' if self.quaternion_check.isChecked() else 'rotateXYZ'
+        values = {key: [field.value() for field in self.transform_fields[key]] for key in ('translate', rotation, 'scale')}
         self.execute("set_transform", dict(path=self.selected_path(), values=values,
-                    space=self.space.currentText().lower(), representation="euler", frame=self.document.frame,
+                    space=self.space.currentText().lower(), representation='trs' if rotation == 'orient' else 'euler', frame=self.document.frame,
+                    output_as_matrix=self.matrix_output.isChecked(),
                     time="frame" if self.time_mode.currentIndex() else "default"))
+
+    def update_rotation_ui(self):
+        enabled = self.quaternion_check.isChecked()
+        self.rotation_label.setText('Rotate WXYZ' if enabled else 'Rotate XYZ')
+        self.rotation_fields.setCurrentIndex(int(enabled))
+
+    def rotation_mode_changed(self, enabled):
+        try:
+            if enabled:
+                values = quaternion_from_euler([field.value() for field in self.transform_fields['rotateXYZ']])
+            else:
+                q = checked_values({'orient': [field.value() for field in self.transform_fields['orient']]})['orient']
+                values = euler_from_quaternion(q)
+        except ValueError:
+            with QSignalBlocker(self.quaternion_check):
+                self.quaternion_check.setChecked(not enabled)
+            raise
+        for field, value in zip(self.transform_fields['orient' if enabled else 'rotateXYZ'], values):
+            field.setValue(value)
+        self.update_rotation_ui()
+        self.store_transform_preferences()
+
+    def store_transform_preferences(self, *_):
+        self.document.view['transform_authoring'] = dict(quaternion=self.quaternion_check.isChecked(),
+                                                       output_as_matrix=self.matrix_output.isChecked())
+
+    def commit_viewport_transform(self, data):
+        self.execute('set_transform', dict(data, output_as_matrix=self.matrix_output.isChecked(),
+                     representation='trs' if self.quaternion_check.isChecked() else 'euler'))
 
     def preview_transform(self, data):
         if data is None:
@@ -956,7 +1029,9 @@ class MainWindow(QMainWindow):
 
     def select_transform_tool(self, index):
         self.tool.setCurrentIndex(index)
+        self.viewport.set_tool(('translate', 'orient', 'scale')[index])
         self.viewport.setFocus(Qt.ShortcutFocusReason)
+        self.viewport.update()
 
     def space_changed(self, value):
         self.viewport.space = value.lower()

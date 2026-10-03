@@ -428,6 +428,7 @@ def test_application_precision_dialog_persists_and_refreshes_both_panels(window)
         dialog.precision['float'].setValue(3)
         dialog.precision['double'].setValue(9)
         dialog.show_types.setChecked(False)
+        dialog.orientation_gizmo.setChecked(False)
         QTest.mouseClick(dialog.findChild(QDialogButtonBox).button(QDialogButtonBox.Ok), Qt.LeftButton)
 
     QTimer.singleShot(0, accept_settings)
@@ -438,6 +439,9 @@ def test_application_precision_dialog_persists_and_refreshes_both_panels(window)
     restored = ApplicationSettings(window.application_settings.storage)
     assert restored.decimals('float') == 3 and restored.decimals('double') == 9
     assert not restored.show_property_types()
+    QApplication.processEvents()
+    assert not restored.show_orientation_gizmo()
+    assert not window.viewport.show_orientation_gizmo and not window.viewport.orientation_axes
     from omnilab.frontends.qt.settings_editor import SettingsEditor
     renderer_settings = SettingsEditor(window)
     assert renderer_settings.table.isColumnHidden(1)
@@ -448,6 +452,7 @@ def test_application_precision_dialog_persists_and_refreshes_both_panels(window)
     dialog.restore_defaults()
     assert dialog.precision['float'].value() == 6 and dialog.precision['double'].value() == 12
     assert dialog.show_types.isChecked()
+    assert dialog.orientation_gizmo.isChecked()
     dialog.reject()
     assert restored.decimals('float') == 3  # Cancel does not save restored defaults.
     assert not restored.show_property_types()
@@ -471,8 +476,14 @@ def test_transform_shortcuts_from_stage_author_drag_and_undo(window, key, index,
     original = prim.ComputeLocalToWorldTransform(Usd.TimeCode.Default())
     parent = UsdGeom.Xformable(window.document.stage.GetPrimAtPath('/World'))
     parent_before = parent.GetLocalTransformation()
-    _, start, end, _ = max(window.viewport.handles, key=lambda h: (h[2]-h[1]).manhattanLength())
-    target = end + (end-start)*.5
+    if tool == 'orient':
+        assert not window.viewport.handles
+        ring = max(window.viewport.rotation_handles, key=lambda ring: abs(window.viewport._view_matrix.TransformDir(ring['normal'])[2]))
+        end, target = ring['points'][9], ring['points'][15]
+    else:
+        assert not window.viewport.rotation_handles
+        _, start, end, _ = max(window.viewport.handles, key=lambda h: (h[2]-h[1]).manhattanLength())
+        target = end + (end-start)*.5
     QTest.mousePress(window.viewport, Qt.LeftButton, Qt.NoModifier, end.toPoint())
     QTest.mouseMove(window.viewport, target.toPoint(), 10)
     QTest.mouseRelease(window.viewport, Qt.LeftButton, Qt.NoModifier, target.toPoint())
@@ -531,7 +542,120 @@ def test_properties_sidebar_can_shrink_with_transform_controls_visible(window):
     QApplication.processEvents()
     assert 240 <= window.properties_tabs.width() <= 260
     assert window.properties.isVisible()
-    assert all(field.isVisible() for fields in window.transform_fields.values() for field in fields)
+    for quaternion in (False, True):
+        window.quaternion_check.setChecked(quaternion)
+        QApplication.processEvents()
+        rotation = 'orient' if quaternion else 'rotateXYZ'
+        assert all(field.isVisible() for key in ('translate', rotation, 'scale') for field in window.transform_fields[key])
+        assert window.properties_tabs.width() <= 260
+
+
+def test_quaternion_fields_convert_without_authoring_and_persist(window, tmp_path):
+    from pxr import Gf
+    from omnilab.core.document import Document
+    from omnilab.usd.usd_transforms import quaternion_from_euler
+    window.document.select(['/World/Cube'])
+    window.refresh()
+    angles = [20, 30, 40]
+    for field, value in zip(window.transform_fields['rotateXYZ'], angles):
+        field.setValue(value)
+    window.transform_fields['translate'][0].setValue(7)
+    window.transform_fields['scale'][1].setValue(3)
+    before = window.document.stage.GetRootLayer().ExportToString()
+    window.quaternion_check.setChecked(True)
+    assert [field.accessibleName() for field in window.transform_fields['orient']] == ['orient '+c for c in 'WXYZ']
+    values = [field.value() for field in window.transform_fields['orient']]
+    assert values == pytest.approx(quaternion_from_euler(angles), abs=1e-11)
+    assert window.transform_fields['translate'][0].value() == 7
+    assert window.transform_fields['scale'][1].value() == 3
+    window.quaternion_check.setChecked(False)
+    q = quaternion_from_euler([field.value() for field in window.transform_fields['rotateXYZ']])
+    assert Gf.IsClose(Gf.Matrix3d().SetRotate(Gf.Quatd(q[0], Gf.Vec3d(*q[1:]))),
+                      Gf.Matrix3d().SetRotate(Gf.Quatd(values[0], Gf.Vec3d(*values[1:]))), 1e-5)
+    assert window.document.stage.GetRootLayer().ExportToString() == before
+    assert not window.document.edits.undo
+    window.quaternion_check.setChecked(True)
+    window.matrix_output.setChecked(True)
+    window.document.save(tmp_path/'transforms.omnilab')
+    window.install_document(Document.open(tmp_path/'transforms.omnilab'))
+    assert window.quaternion_check.isChecked() and window.matrix_output.isChecked()
+    assert window.rotation_fields.currentIndex() == 1
+
+
+@pytest.mark.parametrize('matrix', [False, True])
+def test_quaternion_apply_normalizes_and_matrix_has_one_active_op(window, matrix):
+    from pxr import Gf
+    from omnilab.usd.usd_transform_pose import MATRIX_NAME
+    window.document.select(['/World/Cube'])
+    window.refresh()
+    window.quaternion_check.setChecked(True)
+    window.matrix_output.setChecked(matrix)
+    for field, value in zip(window.transform_fields['orient'], [2, 0, 0, 2]):
+        field.setValue(value)
+    window.apply_transform()
+    prim = window.document.stage.GetPrimAtPath('/World/Cube')
+    xform = UsdGeom.Xformable(prim)
+    assert Gf.IsClose(xform.GetLocalTransformation().ExtractRotationMatrix(), Gf.Matrix3d().SetRotate(Gf.Rotation(Gf.Vec3d(0, 0, 1), 90)), 1e-6)
+    if matrix:
+        assert [str(op.GetOpName()) for op in xform.GetOrderedXformOps()] == [MATRIX_NAME]
+    else:
+        assert prim.GetAttribute('xformOp:orient').Get().GetLength() == pytest.approx(1.)
+    assert len(window.document.edits.undo) == 1
+    window.execute('restore')
+    assert not window.document.dirty
+
+
+def test_rotate_ring_cancel_then_commit_single_matrix(window):
+    from pxr import Gf
+    from omnilab.usd.usd_transform_pose import MATRIX_NAME
+    window.document.select(['/World/Cube'])
+    window.refresh()
+    window.matrix_output.setChecked(True)
+    window.select_transform_tool(1)
+    QApplication.processEvents()
+    ring = max(window.viewport.rotation_handles, key=lambda ring: abs(window.viewport._view_matrix.TransformDir(ring['normal'])[2]))
+    start, end = ring['points'][9].toPoint(), ring['points'][15].toPoint()
+    xform = UsdGeom.Xformable(window.document.stage.GetPrimAtPath('/World/Cube'))
+    before = xform.GetLocalTransformation()
+    for cancel in (True, False):
+        QTest.mousePress(window.viewport, Qt.LeftButton, Qt.NoModifier, start)
+        QTest.mouseMove(window.viewport, end, 10)
+        assert window.viewport.preview_world is not None
+        if cancel:
+            QTest.keyClick(window.viewport, Qt.Key_Escape)
+        QTest.mouseRelease(window.viewport, Qt.LeftButton, Qt.NoModifier, end)
+        assert len(window.document.edits.undo) == (0 if cancel else 1)
+    assert [str(op.GetOpName()) for op in xform.GetOrderedXformOps()] == [MATRIX_NAME]
+    assert not Gf.IsClose(xform.GetLocalTransformation(), before, 1e-6)
+    window.execute('restore')
+    assert Gf.IsClose(xform.GetLocalTransformation(), before, 1e-6)
+
+
+def test_orientation_gizmo_tracks_camera_without_authoring(window):
+    assert set(window.viewport.orientation_axes) == set('XYZ')
+    before = dict(window.viewport.orientation_axes)
+    window.viewport.camera.orbit(60, 20)
+    window.viewport.repaint()
+    assert before != window.viewport.orientation_axes
+    assert all(point.x() > window.viewport.width()-115 and point.y() > window.viewport.height()-120
+               for point in window.viewport.orientation_axes.values())
+    assert not window.document.edits.undo
+    window.viewport.show_orientation_gizmo = False
+    window.viewport.repaint()
+    assert not window.viewport.orientation_axes
+
+
+def test_camera_guide_draws_wire_body_and_frustum(window, monkeypatch):
+    from pxr import Gf
+    camera = UsdGeom.Camera.Define(window.document.stage, '/World/GuideCamera')
+    camera.AddTranslateOp().Set((2, 1, -1))
+    segments = []
+    monkeypatch.setattr(window.viewport, 'line3d', lambda painter, a, b: segments.append((a, b)))
+    matrix = camera.ComputeLocalToWorldTransform(Usd.TimeCode.Default())
+    window.viewport.draw_camera_guide(None, camera.GetPrim(), matrix, Usd.TimeCode.Default())
+    assert len(segments) == 20  # Four lens rays, four frame edges, twelve body edges.
+    assert all(Gf.IsClose(a, matrix.ExtractTranslation(), 1e-12) for a, _ in segments[:4])
+    assert all(b[2] < -1 for _, b in segments[:4])
 
 
 @pytest.mark.parametrize('kind,count,decimals', [('Float2', 2, 6), ('Float3', 3, 6), ('Float4', 4, 6),

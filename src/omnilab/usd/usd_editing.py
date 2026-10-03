@@ -216,17 +216,19 @@ class StageEdits:
         joint = split_joint_path(data["path"])
         if joint:
             from .usd_skeleton import write_joint
-            if data.get("space", "local") != "local" or "matrix" in data.get("values", {}):
+            if data.get("space", "local") != "local" or "matrix" in data.get("values", {}) or data.get('output_as_matrix'):
                 raise ValueError("Skeleton joints use joint-local TRS values.")
             skeleton, name = joint
             return self.change("Joint transform " + name, lambda: write_joint(
                 self.stage.GetPrimAtPath(skeleton), name, data["values"], data.get("frame", 0), data.get("time", "default")))
         from .usd_transforms import write_transform
-        if "space" in data or "matrix" in data.get("values", {}):
+        if "space" in data or "matrix" in data.get("values", {}) or 'output_as_matrix' in data:
             from .usd_transform_pose import write_pose
             return self.change("Transform " + data["path"], lambda: write_pose(
                 self.stage.GetPrimAtPath(data["path"]), data["values"], data.get("frame", 0),
-                data.get("time", "default"), data.get("space", "local"), data.get("representation", "trs")))
+                data.get("time", "default"), data.get("space", "local"),
+                data.get("representation", "matrix" if 'matrix' in data['values'] else "trs"),
+                output_as_matrix=data.get('output_as_matrix', False)))
         return self.change("Transform " + data["path"], lambda: write_transform(
             self.stage.GetPrimAtPath(data["path"]), data["values"], data.get("frame", 0), data.get("time", "default")))
 

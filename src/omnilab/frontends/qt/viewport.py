@@ -3,7 +3,7 @@ import math
 import numpy as np
 
 from PySide6.QtCore import Qt, QPointF, QRectF, Signal
-from PySide6.QtGui import QColor, QImage, QPainter, QPen
+from PySide6.QtGui import QColor, QImage, QPainter, QPen, QPolygonF
 from PySide6.QtWidgets import QWidget
 from pxr import Gf, Usd, UsdGeom, UsdLux
 
@@ -38,6 +38,9 @@ class Viewport(QWidget):
         self.guides = True
         self.display = "Shaded"
         self.handles = []
+        self.rotation_handles = []
+        self.show_orientation_gizmo = True
+        self.orientation_axes = {}
         self.drag = None
         self.preview_world = None
         self.edit_time = "default"
@@ -123,13 +126,16 @@ class Viewport(QWidget):
         if self.document and (self.guides or self.display in ("Points", "Wire over Shaded")):
             self.draw_scene_overlays(painter)
         self.handles = []
+        self.rotation_handles = []
         world = self.preview_world or self.selected_world()
         if world is not None:
             pivot = world.ExtractTranslation()
             origin = self.project(pivot)
             size = self.camera.distance * .075
             if origin is not None:
-                for axis, vector in enumerate(gizmo_axes(world, self.space)):
+                if self.tool == 'orient':
+                    self.draw_rotation_gizmo(painter, world, size)
+                for axis, vector in enumerate(gizmo_axes(world, self.space)) if self.tool != 'orient' else ():
                     end = self.project(pivot + vector * size)
                     if end is None:
                         continue
@@ -138,9 +144,14 @@ class Viewport(QWidget):
                     painter.drawLine(origin, end)
                     painter.setBrush(color)
                     if self.tool == "scale":
-                        painter.drawRect(QRectF(end.x() - 4, end.y() - 4, 8, 8))
+                        painter.drawRect(QRectF(end.x() - 5, end.y() - 5, 10, 10))
                     else:
-                        painter.drawEllipse(end, 4, 4)
+                        direction = end-origin
+                        length = math.hypot(direction.x(), direction.y())
+                        if length > 1:
+                            direction /= length
+                            side = QPointF(-direction.y(), direction.x())*5
+                            painter.drawPolygon(QPolygonF([end, end-direction*13+side, end-direction*13-side]))
                     painter.drawText(end + QPointF(6, -6), "XYZ"[axis])
                     self.handles.append((axis, origin, end, size))
         if self.drag and self.drag["kind"] == "pick":
@@ -150,11 +161,96 @@ class Viewport(QWidget):
         painter.setClipping(False)
         painter.setPen(QColor("#eceff5"))
         title = self.scene_camera_path or ("Orthographic" if self.camera.orthographic else "Perspective")
-        painter.drawText(12, 22, f"{title}   ·   {self.tool.title()} / {self.space.title()}")
+        tool_name = {'translate': 'Translate', 'orient': 'Rotate', 'scale': 'Scale'}[self.tool]
+        painter.drawText(12, 22, f"{title}   ·   {tool_name} / {self.space.title()}")
         painter.drawText(12, self.height() - 12, "Alt+LMB orbit · MMB pan · Wheel dolly · F frame · W/E/R transform")
         if self.message:
             painter.fillRect(QRectF(0, 35, self.width(), 30), QColor(25, 28, 35, 210))
             painter.drawText(12, 55, self.message[:140])
+        self.orientation_axes = {}
+        if self.show_orientation_gizmo:
+            self.draw_orientation_gizmo(painter)
+
+    def draw_rotation_gizmo(self, painter, world, size):
+        pivot = world.ExtractTranslation()
+        axes = gizmo_axes(world, self.space)
+        for axis, normal in enumerate(axes):
+            u, v = axes[(axis+1) % 3], axes[(axis+2) % 3]
+            points = [self.project(pivot + size*(u*math.cos(i*math.tau/72) + v*math.sin(i*math.tau/72)))
+                      for i in range(73)]
+            color = QColor(('#ff6b68', '#80dc83', '#77a8ff')[axis])
+            painter.setPen(QPen(color, 3))
+            painter.setBrush(Qt.NoBrush)
+            for start, end in zip(points, points[1:]):
+                if start is not None and end is not None:
+                    painter.drawLine(start, end)
+            label = points[9]
+            if label is not None:
+                painter.drawText(label+QPointF(5, -5), 'XYZ'[axis])
+            self.rotation_handles.append(dict(axis=axis, normal=normal, u=u, v=v, pivot=pivot, points=points))
+
+    @staticmethod
+    def nearest_ring_point(pos, ring):
+        best = (float('inf'), 0.)
+        for index, (a, b) in enumerate(zip(ring['points'], ring['points'][1:])):
+            if a is None or b is None:
+                continue
+            delta = b-a
+            length = delta.x()**2 + delta.y()**2
+            t = max(0., min(1., ((pos-a).x()*delta.x()+(pos-a).y()*delta.y())/length)) if length else 0.
+            d = pos-(a+delta*t)
+            candidate = (math.hypot(d.x(), d.y()), (index+t)*math.tau/72)
+            if candidate < best:
+                best = candidate
+        return best
+
+    def ring_angle(self, pos, ring):
+        rect = self.image_rect()
+        ray = self.render_camera().frustum.ComputePickRay(Gf.Vec2d(
+            2*(pos.x()-rect.left())/rect.width()-1, 1-2*(pos.y()-rect.top())/rect.height()))
+        denominator = Gf.Dot(ray.direction, ring['normal'])
+        if abs(denominator) > 1e-6:
+            distance = Gf.Dot(ring['pivot']-ray.startPoint, ring['normal'])/denominator
+            if distance >= 0:
+                radial = ray.GetPoint(distance)-ring['pivot']
+                return math.atan2(Gf.Dot(radial, ring['v']), Gf.Dot(radial, ring['u']))
+        return self.nearest_ring_point(pos, ring)[1]
+
+    def draw_orientation_gizmo(self, painter):
+        center = QPointF(self.width()-60, self.height()-70)
+        axes = [(name, self._view_matrix.TransformDir(Gf.Vec3d(*(1 if i == axis else 0 for i in range(3)))), color)
+                for axis, (name, color) in enumerate(zip('XYZ', ('#ff6b68', '#80dc83', '#77a8ff')))]
+        for name, direction, color in sorted(axes, key=lambda item: item[1][2]):
+            offset = QPointF(direction[0]*33, -direction[1]*33)
+            painter.setPen(QPen(QColor(color).darker(200), 1, Qt.DashLine))
+            painter.drawLine(center, center-offset)
+            painter.setPen(QPen(QColor(color), 2))
+            painter.drawLine(center, center+offset)
+            painter.setBrush(QColor(color))
+            painter.drawEllipse(center+offset, 4, 4)
+            painter.drawText(center+offset+QPointF(5, -5), name)
+            self.orientation_axes[name] = center+offset
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(QColor('#dce2ed'))
+        painter.drawEllipse(center, 3, 3)
+
+    def draw_camera_guide(self, painter, prim, matrix, time):
+        size = self.camera.distance*.06
+        camera = UsdGeom.Camera(prim).GetCamera(time)
+        corners = camera.frustum.ComputeCornersAtDistance(size)
+        center = matrix.ExtractTranslation()
+        for index in range(4):
+            self.line3d(painter, center, corners[index])
+        order = (0, 1, 3, 2, 0)
+        for a, b in zip(order, order[1:]):
+            self.line3d(painter, corners[a], corners[b])
+        body = [matrix.Transform(Gf.Vec3d(x*size*.15, y*size*.1, z*size*.25))
+                for z in (0, 1) for y in (-1, 1) for x in (-1, 1)]
+        for offset in (0, 4):
+            for a, b in zip(order, order[1:]):
+                self.line3d(painter, body[a+offset], body[b+offset])
+        for index in range(4):
+            self.line3d(painter, body[index], body[index+4])
 
     def draw_scene_overlays(self, painter):
         time = Usd.TimeCode(self.document.frame)
@@ -171,9 +267,13 @@ class Viewport(QWidget):
                 center = matrix.ExtractTranslation()
                 point = self.project(center)
                 if point is not None:
-                    painter.drawEllipse(point, 6, 6)
+                    if not prim.IsA(UsdGeom.Camera):
+                        painter.drawEllipse(point, 6, 6)
                     painter.drawText(point + QPointF(8, 0), prim.GetName())
-                self.line3d(painter, center, matrix.Transform(Gf.Vec3d(0, 0, -self.camera.distance * .04)))
+                if prim.IsA(UsdGeom.Camera):
+                    self.draw_camera_guide(painter, prim, matrix, time)
+                else:
+                    self.line3d(painter, center, matrix.Transform(Gf.Vec3d(0, 0, -self.camera.distance * .04)))
             if self.display not in ("Points", "Wire over Shaded") or not prim.IsA(UsdGeom.Mesh) or self.depth is None or not self.depth_current or self._overlay_budget <= 0:
                 continue
             mesh = UsdGeom.Mesh(prim)
@@ -246,6 +346,13 @@ class Viewport(QWidget):
             return
         world = self.selected_world()
         if kind == "pick" and world is not None:
+            if self.tool == 'orient' and self.rotation_handles:
+                ring = min(self.rotation_handles, key=lambda ring: self.nearest_ring_point(pos, ring)[0])
+                if self.nearest_ring_point(pos, ring)[0] < 10:
+                    self.drag = dict(kind='transform', start=pos, last=pos, axis=ring['axis'], world=world,
+                                     ring=ring, angle=self.ring_angle(pos, ring), accumulated=0.,
+                                     path=self.document.selection[0], tool=self.tool, space=self.space)
+                    return
             for axis, origin, end, size in self.handles:
                 delta = end - origin
                 length = delta.x() ** 2 + delta.y() ** 2
@@ -255,7 +362,7 @@ class Viewport(QWidget):
                 nearest = origin + delta * u
                 if (pos - nearest).manhattanLength() < 12 and u > .2:
                     self.drag = dict(kind="transform", start=pos, last=pos, axis=axis, world=world,
-                                     delta=delta, length=length, size=size)
+                                     delta=delta, length=length, size=size, path=self.document.selection[0], tool=self.tool, space=self.space)
                     return
         if kind != "pick" and self.scene_camera_path:
             if not self.begin_camera_navigation():
@@ -277,12 +384,19 @@ class Viewport(QWidget):
         elif kind == "dolly":
             self.camera.dolly(delta.y() * .01)
         elif kind == "transform":
-            d = pos - self.drag["start"]
-            axis_delta = self.drag["delta"]
-            ratio = (d.x() * axis_delta.x() + d.y() * axis_delta.y()) / self.drag["length"]
-            amount = ratio * self.drag["size"] if self.tool == "translate" else ratio * 90 if self.tool == "orient" else max(.01, 1 + ratio)
-            self.preview_world = manipulated_world(self.drag["world"], self.tool, self.drag["axis"], amount, self.space)
-            self.transformPreviewChanged.emit(dict(path=self.document.selection[0], before=rows(self.drag['world']),
+            if 'ring' in self.drag:
+                angle = self.ring_angle(pos, self.drag['ring'])
+                delta_angle = angle-self.drag['angle']
+                self.drag['accumulated'] += math.degrees(math.atan2(math.sin(delta_angle), math.cos(delta_angle)))
+                self.drag['angle'] = angle
+                amount = self.drag['accumulated']
+            else:
+                d = pos - self.drag["start"]
+                axis_delta = self.drag["delta"]
+                ratio = (d.x() * axis_delta.x() + d.y() * axis_delta.y()) / self.drag["length"]
+                amount = ratio * self.drag["size"] if self.drag['tool'] == "translate" else max(.01, 1 + ratio)
+            self.preview_world = manipulated_world(self.drag["world"], self.drag['tool'], self.drag["axis"], amount, self.drag['space'])
+            self.transformPreviewChanged.emit(dict(path=self.drag['path'], before=rows(self.drag['world']),
                                                    matrix=rows(self.preview_world)))
         if kind in ("orbit", "pan", "dolly"):
             self.cameraChanged.emit()
@@ -293,7 +407,7 @@ class Viewport(QWidget):
             return
         drag, self.drag = self.drag, None
         if drag["kind"] == "transform" and self.preview_world is not None:
-            self.transformCommitted.emit(dict(path=self.document.selection[0], values={"matrix": rows(self.preview_world)},
+            self.transformCommitted.emit(dict(path=drag['path'], values={"matrix": rows(self.preview_world)},
                                               space="world", representation="matrix", frame=self.document.frame, time=self.edit_time))
         elif drag["kind"] == "pick":
             rect = self.image_rect()

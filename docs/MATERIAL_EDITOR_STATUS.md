@@ -44,3 +44,17 @@ The updated CPU suite passes **169 tests**, including scalar/vector/color edits,
 ![Inline material vectors and color swatches with Type hidden](evidence/material-values.png)
 
 [Viewport, inline Properties and timeline capture](evidence/editor-controls.png).
+
+## Quaternion, matrix output and gizmos
+
+The **Quaternion** checkbox beside Rotate XYZ switches the rotation editor to explicitly labeled **W, X, Y, Z** fields. Switching converts pending rotation values without authoring USD or changing pending translation/scale. Apply normalizes a nonzero quaternion; zero-length values are rejected. With ordinary component stacks, quaternion mode authors `xformOp:orient` and Euler mode authors `xformOp:rotateXYZ`.
+
+**Output as matrix** applies to both the Properties Apply button and viewport drags. It writes the combined local pose as one double-precision `xformOp:transform:studioMatrix` in the active `xformOpOrder`, respecting Local/World space, the parent transform and reset-stack state. Existing defaults and all authored transform key poses are retained, including fractional frames, when inserting a new key. Conversion and editing form one undo transaction. Original component attributes remain inactive, so referenced source layers are preserved. Matrix interpolation can differ from Euler/quaternion interpolation between authored keys. With the option off, imported or existing matrix stacks retain their usual preservation behavior; the checkbox does not immediately convert an existing stack back to components. Rotation mode and matrix output preferences persist in project/relaunch state.
+
+**W/E/R** now visibly select three different manipulators: Translate arrowheads, Rotate rings and Scale box handles. Rotation drags follow the selected ring around its axis; release commits once and Escape cancels. The toolbar and viewport stay synchronized. The bottom-right XYZ orientation gizmo follows free or scene camera orientation and has its own persistent **Show viewport orientation gizmo** checkbox in Application Settings. Camera guides now draw a wireframe body and frustum.
+
+Validation: **179 CPU tests passed**, plus the native ovRTX/input replay. Coverage includes keyboard selection and drag/undo for all three tools, quaternion conversion/normalization, project preferences, a narrow sidebar, matrix-only order, imported pivot/key/reset preservation, stale sample replacement, source-layer preservation, save/reopen and undo/redo. The native replay also exercises matrix Apply and ring drag, and toggles orientation visibility through the actual settings dialog. [Native results](evidence/editor-controls.json).
+
+![Rotation rings, wireframe camera and orientation gizmo](evidence/gizmo-orient.png)
+
+[Translate arrows](evidence/gizmo-translate.png) · [Scale handles](evidence/gizmo-scale.png) · [Quaternion and matrix authoring](evidence/quaternion-matrix.png).

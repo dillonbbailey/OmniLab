@@ -36,6 +36,13 @@ class ApplicationSettings:
         self.storage.setValue('propertyEditors/showTypes', visible)
         self.storage.sync()
 
+    def show_orientation_gizmo(self):
+        return self.storage.value('viewport/showOrientationGizmo', True, type=bool)
+
+    def set_show_orientation_gizmo(self, visible):
+        self.storage.setValue('viewport/showOrientationGizmo', visible)
+        self.storage.sync()
+
 
 class ApplicationSettingsDialog(QDialog):
     def __init__(self, settings, parent=None):
@@ -59,7 +66,10 @@ class ApplicationSettingsDialog(QDialog):
         self.show_types.setChecked(settings.show_property_types())
         self.show_types.setToolTip('Show the Type column in Properties, Material Editor and ovRTX settings.')
         layout.addWidget(self.show_types)
-        note = QLabel('Applies to Properties and the Material Editor. Changing precision does not change stored scene values.')
+        self.orientation_gizmo = QCheckBox('Show viewport orientation gizmo')
+        self.orientation_gizmo.setChecked(settings.show_orientation_gizmo())
+        layout.addWidget(self.orientation_gizmo)
+        note = QLabel('Numeric precision applies to Properties and the Material Editor. Changing precision does not change stored scene values.')
         note.setWordWrap(True)
         layout.addWidget(note)
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel | QDialogButtonBox.RestoreDefaults)
@@ -72,8 +82,10 @@ class ApplicationSettingsDialog(QDialog):
         for kind, value in self.settings.DEFAULTS.items():
             self.precision[kind].setValue(value)
         self.show_types.setChecked(True)
+        self.orientation_gizmo.setChecked(True)
 
     def accept(self):
         self.settings.save_precision(self.precision['float'].value(), self.precision['double'].value())
         self.settings.set_show_property_types(self.show_types.isChecked())
+        self.settings.set_show_orientation_gizmo(self.orientation_gizmo.isChecked())
         super().accept()

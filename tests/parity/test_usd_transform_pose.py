@@ -4,7 +4,7 @@ import unittest
 from pxr import Gf, Usd, UsdGeom
 
 from omnilab.usd.usd_editing import StageEdits
-from omnilab.usd.usd_transform_pose import MATRIX_NAME, manipulated_world, pose_info, rows, write_local_matrix
+from omnilab.usd.usd_transform_pose import MATRIX_NAME, compose, manipulated_world, pose_info, rows, write_local_matrix
 from omnilab.usd.usd_transforms import quaternion_from_euler
 
 
@@ -201,6 +201,79 @@ class PoseTests(unittest.TestCase):
         for t in (1, 48):
             self.assertTrue(Gf.IsClose(self.world(t), before[t], 1e-12))
         self.assertEqual(self.prim.GetAttribute(MATRIX_NAME).GetTimeSamples(), [1, 24, 48])
+
+    def test_single_matrix_from_euler_and_quaternion_in_both_spaces(self):
+        self.parent.AddScaleOp().Set((2, 3, 4))
+        q = quaternion_from_euler([20, -40, 60])
+        expected = compose(dict(translate=[3, 5, 7], orient=q, scale=[2, 1, 3]))
+        for space in ('local', 'world'):
+            for representation, rotation in (('euler', dict(rotateXYZ=[20, -40, 60])), ('trs', dict(orient=q))):
+                # Start each case from the simple stack; world edits on an already
+                # sheared local matrix deliberately require exact matrix input.
+                self.apply(dict(translate=[3, 5, 7], scale=[2, 1, 3], **rotation), space,
+                           representation, output_as_matrix=True)
+                actual = self.world() if space == 'world' else self.xform.GetLocalTransformation()
+                self.assertTrue(Gf.IsClose(actual, expected, 1e-10))
+                self.assertEqual([str(op.GetOpName()) for op in self.xform.GetOrderedXformOps()], [MATRIX_NAME])
+                self.edits.restore()
+
+    def test_single_matrix_retains_imported_default_keys_reset_and_undo(self):
+        pivot = self.xform.AddTranslateOp(opSuffix='pivot')
+        pivot.Set((1, 2, 3))
+        rotate = self.xform.AddRotateXYZOp()
+        rotate.Set((20, 30, 40))
+        rotate.Set((0, 10, 20), 1)
+        rotate.Set((70, 80, 90), 48)
+        self.xform.AddTranslateOp(opSuffix='pivot', isInverseOp=True)
+        self.xform.SetResetXformStack(True)
+        original_order = [str(op.GetOpName()) for op in self.xform.GetOrderedXformOps()]
+        old = {t: self.world(t) for t in (Usd.TimeCode.Default(), 1, 48)}
+        self.edits.set_edit_target(self.stage.GetSessionLayer().identifier)
+        source = self.stage.GetRootLayer().ExportToString()
+        target = Gf.Matrix4d().SetTranslate((8, 9, 10))
+        self.apply(dict(matrix=rows(target)), 'world', 'matrix', frame=12.5, time='frame', output_as_matrix=True)
+        attr = self.prim.GetAttribute(MATRIX_NAME)
+        self.assertEqual(attr.GetTimeSamples(), [1, 12.5, 48])
+        self.assertTrue(self.xform.GetResetXformStack())
+        self.assertTrue(Gf.IsClose(self.world(12.5), target, 1e-12))
+        for time, matrix in old.items():
+            self.assertTrue(Gf.IsClose(self.world(time), matrix, 1e-12))
+        self.assertEqual(self.stage.GetRootLayer().ExportToString(), source)
+        self.assertEqual(rotate.GetTimeSamples(), [1, 48])
+        reopened = Usd.Stage.Open(self.stage.Flatten())
+        exported = UsdGeom.Xformable(reopened.GetPrimAtPath(self.prim.GetPath()))
+        self.assertEqual([str(op.GetOpName()) for op in exported.GetOrderedXformOps()], [MATRIX_NAME])
+        self.assertTrue(Gf.IsClose(exported.GetLocalTransformation(12.5), target, 1e-12))
+        self.assertEqual(len(self.edits.undo), 1)
+        self.edits.restore()
+        self.assertEqual([str(op.GetOpName()) for op in self.xform.GetOrderedXformOps()], original_order)
+        self.edits.restore(redo=True)
+        self.assertTrue(Gf.IsClose(self.world(12.5), target, 1e-12))
+
+    def test_single_matrix_reuses_op_and_replaces_inactive_sample_maps(self):
+        inactive = self.xform.AddTransformOp(UsdGeom.XformOp.PrecisionDouble, 'studioMatrix')
+        inactive.Set(Gf.Matrix4d().SetTranslate((90, 90, 90)), 999)
+        translate = self.xform.AddTranslateOp()
+        translate.Set((1, 2, 3))
+        translate.Set((2, 3, 4), 1)
+        translate.Set((4, 5, 6), 20)
+        self.xform.SetXformOpOrder([translate])
+        self.edits.set_edit_target(self.stage.GetSessionLayer().identifier)
+        for frame in (5.5, 10.5):
+            self.apply(dict(translate=[frame, 0, 0]), frame=frame, time='frame', output_as_matrix=True)
+        self.assertEqual(inactive.GetTimeSamples(), [1, 5.5, 10.5, 20])
+        self.assertEqual([str(op.GetOpName()) for op in self.xform.GetOrderedXformOps()], [MATRIX_NAME])
+        self.assertTrue(Gf.IsClose(self.xform.GetLocalTransformation(1).ExtractTranslation(), Gf.Vec3d(2, 3, 4), 1e-12))
+
+    def test_single_matrix_zero_scale_and_invalid_options(self):
+        self.xform.AddScaleOp().Set((0, 1, 1))
+        self.apply(dict(translate=[1, 2, 3], orient=[1, 0, 0, 0], scale=[0, 2, 3]), output_as_matrix=True)
+        self.assertEqual(self.xform.GetLocalTransformation().ExtractTranslation(), Gf.Vec3d(1, 2, 3))
+        before = self.edits.layer.ExportToString()
+        for values, flag in ((dict(orient=[0, 0, 0, 0]), True), (dict(translate=[1, 2, 3]), 'yes')):
+            with self.assertRaises(ValueError):
+                self.apply(values, output_as_matrix=flag)
+            self.assertEqual(self.edits.layer.ExportToString(), before)
 
 
 if __name__ == "__main__":
