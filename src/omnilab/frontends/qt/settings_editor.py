@@ -46,6 +46,7 @@ class SettingsEditor(QDialog):
         return self.owner.document.view.setdefault('rtx_settings', {}).setdefault(profile, {})
 
     def populate(self, *_):
+        self.table.setColumnHidden(1, not self.owner.application_settings.show_property_types())
         self.table.clear()
         values = self.values()
         words = self.search.text().lower().split()

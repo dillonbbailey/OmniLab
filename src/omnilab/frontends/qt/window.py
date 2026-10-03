@@ -4,13 +4,13 @@ from pathlib import Path
 import tempfile
 import time
 
-from PySide6.QtCore import Qt, QTimer, Signal, QSignalBlocker, QProcess
-from PySide6.QtGui import QAction, QImage, QFont
+from PySide6.QtCore import Qt, QTimer, Signal, QSignalBlocker, QProcess, QItemSelectionModel
+from PySide6.QtGui import QAction, QImage, QFont, QKeySequence, QShortcut
 from PySide6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QSplitter,
     QTreeWidget, QTreeWidgetItem, QTabWidget, QTableWidget, QTableWidgetItem, QLineEdit,
     QLabel, QPushButton, QComboBox, QSpinBox, QDoubleSpinBox, QCheckBox, QDockWidget,
     QPlainTextEdit, QFileDialog, QMessageBox, QInputDialog, QMenu, QDialog, QDialogButtonBox,
-    QAbstractItemView, QFormLayout, QGroupBox)
+    QAbstractItemView, QFormLayout, QGroupBox, QScrollArea, QFrame, QSizePolicy)
 from pxr import Gf, Sdf, Usd, UsdGeom
 
 from omnilab.core.document import Document
@@ -24,6 +24,9 @@ from omnilab.usd.usd_inspection import property_rows
 from omnilab.usd.usd_variants import variant_choices
 from .renderer import RendererBridge
 from .viewport import Viewport
+from .application_settings import ApplicationSettings, ApplicationSettingsDialog
+from .numeric_editor import NumericEditor, numeric_editor
+from .timeline import Timeline
 
 
 def json_dialog(parent, title, value, readonly=False):
@@ -56,8 +59,9 @@ class PrimTree(QTreeWidget):
 
 
 class MainWindow(QMainWindow):
-    def __init__(self, render_enabled=True):
+    def __init__(self, render_enabled=True, *, application_settings=None):
         super().__init__()
+        self.application_settings = application_settings if application_settings is not None else ApplicationSettings()
         self.resize(1500, 940)
         self.setFont(QFont("Ubuntu Sans", 10))
         self.document = Document()
@@ -125,6 +129,8 @@ class MainWindow(QMainWindow):
         self.action(menu, "Delete selected prim", self.remove, "Delete")
         self.action(menu, "Rename selected prim…", self.rename, "F2")
         self.action(menu, "Bind existing material…", self.bind_material)
+        menu.addSeparator()
+        self.action(menu, "Application Settings…", self.open_application_settings)
         menu = self.menuBar().addMenu("&Create")
         for kind in PRIM_TYPES:
             self.action(menu, kind, lambda kind=kind: self.create_prim(kind))
@@ -138,6 +144,11 @@ class MainWindow(QMainWindow):
         self.action(menu, "Restart renderer", self.restart_renderer)
         self.action(menu, "Stop renderer", self.stop_renderer)
         self.action(menu, "Renderer logs", self.show_renderer_logs)
+        self.timeline_action = QAction('Show Timeline', self)
+        self.timeline_action.setCheckable(True)
+        self.timeline_action.setChecked(self.application_settings.timeline_visible())
+        self.timeline_action.toggled.connect(self.set_timeline_visible)
+        menu.addAction(self.timeline_action)
         menu.addAction(self.log_dock.toggleViewAction())
         menu = self.menuBar().addMenu("&Help")
         self.action(menu, "Controls and scope", self.about)
@@ -147,7 +158,7 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(central)
         layout.setContentsMargins(6, 6, 6, 6)
         self.setCentralWidget(central)
-        splitter = QSplitter()
+        splitter = self.workspace_splitter = QSplitter()
         layout.addWidget(splitter, 1)
         left = QTabWidget()
         splitter.addWidget(left)
@@ -213,23 +224,37 @@ class MainWindow(QMainWindow):
         self.viewport.cameraCommitted.connect(lambda data: self.safe(lambda: self.execute('set_camera_view', data)))
         self.camera_edit.toggled.connect(lambda value: setattr(self.viewport, 'edit_camera', value))
         self.viewport.frameRequested.connect(self.frame_selection)
+        self.viewport.toolChanged.connect(lambda tool: self.tool.setCurrentIndex(('translate', 'orient', 'scale').index(tool)))
         self.tool.currentIndexChanged.connect(self.tool_changed)
+        self.transform_shortcuts = []
+        for index, key in enumerate(('W', 'E', 'R')):
+            for widget in (self.viewport, self.tree):
+                shortcut = QShortcut(QKeySequence(key), widget)
+                shortcut.setContext(Qt.WidgetWithChildrenShortcut)
+                shortcut.activated.connect(lambda index=index: self.select_transform_tool(index))
+                self.transform_shortcuts.append(shortcut)
+        self.tool.setToolTip('W: Translate · E: Rotate · R: Scale. Drag an axis to author the selected prim.')
         self.space.currentTextChanged.connect(self.space_changed)
         self.cameras.currentIndexChanged.connect(self.camera_changed)
         self.ortho.toggled.connect(self.projection_changed)
 
-        right = QTabWidget()
+        right = self.properties_tabs = QTabWidget()
+        right.setMinimumWidth(240)
+        right.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Expanding)
         splitter.addWidget(right)
         properties = QWidget()
         p_layout = QVBoxLayout(properties)
         self.selection_label = QLabel("No selection")
         self.selection_label.setWordWrap(True)
+        self.selection_label.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
         p_layout.addWidget(self.selection_label)
         transform = QGroupBox("Transform")
         form = QFormLayout(transform)
+        form.setRowWrapPolicy(QFormLayout.WrapLongRows)
         self.transform_fields = {}
         for label, key in (("Translate", "translate"), ("Rotate XYZ", "rotateXYZ"), ("Scale", "scale")):
             row = QWidget()
+            row.setMinimumWidth(190)
             row_layout = QHBoxLayout(row)
             row_layout.setContentsMargins(0, 0, 0, 0)
             fields = []
@@ -239,6 +264,8 @@ class MainWindow(QMainWindow):
                 field.setDecimals(4)
                 field.setSingleStep(.1)
                 field.setKeyboardTracking(False)
+                field.setMinimumWidth(0)
+                field.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
                 row_layout.addWidget(field)
                 fields.append(field)
             self.transform_fields[key] = fields
@@ -258,7 +285,11 @@ class MainWindow(QMainWindow):
         self.properties.cellDoubleClicked.connect(lambda row, col: self.safe(lambda: self.edit_property(row)))
         self.properties.horizontalHeader().setStretchLastSection(True)
         p_layout.addWidget(self.properties, 1)
-        right.addTab(properties, "Properties")
+        property_scroll = QScrollArea()
+        property_scroll.setFrameShape(QFrame.NoFrame)
+        property_scroll.setWidgetResizable(True)
+        property_scroll.setWidget(properties)
+        right.addTab(property_scroll, "Properties")
 
         rendering = QWidget()
         r_layout = QFormLayout(rendering)
@@ -299,7 +330,11 @@ class MainWindow(QMainWindow):
         note = QLabel("Ctrl+M: Material Editor · F6: RenderView.\nMoonRay graph conversion: P7.\nPoints / filled wire overlay use authored meshes and native depth.")
         note.setWordWrap(True)
         r_layout.addRow(note)
-        right.addTab(rendering, "Viewport")
+        rendering_scroll = QScrollArea()
+        rendering_scroll.setFrameShape(QFrame.NoFrame)
+        rendering_scroll.setWidgetResizable(True)
+        rendering_scroll.setWidget(rendering)
+        right.addTab(rendering_scroll, "Viewport")
         splitter.setSizes([280, 800, 420])
 
         timeline = QHBoxLayout()
@@ -315,13 +350,16 @@ class MainWindow(QMainWindow):
         self.frame.valueChanged.connect(self.frame_changed)
         timeline.addWidget(QLabel("Frame"))
         timeline.addWidget(self.frame)
+        self.timeline = Timeline()
+        self.timeline.timeChanged.connect(self.scrub_frame)
+        self.timeline.setVisible(self.application_settings.timeline_visible())
+        timeline.addWidget(self.timeline, 1)
         timeline.addWidget(QLabel("Range"))
         timeline.addWidget(self.start_frame)
         timeline.addWidget(self.end_frame)
         range_button = QPushButton("Set range")
         range_button.clicked.connect(lambda: self.safe(lambda: self.execute("set_frame_range", self.start_frame.value(), self.end_frame.value())))
         timeline.addWidget(range_button)
-        timeline.addStretch(1)
         self.stats = QLabel("Renderer stopped")
         timeline.addWidget(self.stats)
         layout.addLayout(timeline)
@@ -526,6 +564,8 @@ class MainWindow(QMainWindow):
             self.frame.setValue(self.document.frame)
             self.start_frame.setValue(self.document.stage.GetStartTimeCode())
             self.end_frame.setValue(self.document.stage.GetEndTimeCode())
+            self.timeline.set_range(self.document.stage.GetStartTimeCode(), self.document.stage.GetEndTimeCode(),
+                                    self.document.frame, self.frame.decimals())
             selected_camera = self.viewport.scene_camera_path
             with QSignalBlocker(self.cameras):
                 self.cameras.clear()
@@ -577,6 +617,8 @@ class MainWindow(QMainWindow):
             for path in self.document.selection:
                 if path in self.tree_items:
                     self.tree_items[path].setSelected(True)
+            if self.document.selection and self.document.selection[0] in self.tree_items:
+                self.tree.setCurrentItem(self.tree_items[self.document.selection[0]], 0, QItemSelectionModel.NoUpdate)
         self.tree.resizeColumnToContents(0)
 
     def prim_item(self, prim):
@@ -621,6 +663,7 @@ class MainWindow(QMainWindow):
         return self.document.selection[0] if self.document.selection else "/"
 
     def refresh_properties(self):
+        self.properties.setColumnHidden(1, not self.application_settings.show_property_types())
         path = self.selected_path()
         prim = self.document.stage.GetPrimAtPath(path)
         self.selection_label.setText(path)
@@ -631,6 +674,9 @@ class MainWindow(QMainWindow):
                 field.setEnabled(info.get("editable", False))
                 field.setValue(value)
                 field.setToolTip(info.get("reason", ""))
+        for editor in self.properties.findChildren(NumericEditor):
+            editor.blockSignals(True)
+        self.properties.clearContents()
         self.property_data = property_rows(prim, Usd.TimeCode(self.document.frame)) if prim else []
         self.properties.setRowCount(len(self.property_data))
         for row, data in enumerate(self.property_data):
@@ -638,8 +684,40 @@ class MainWindow(QMainWindow):
                 item = QTableWidgetItem(str(data[key]))
                 item.setToolTip(f"{data['group']} · {data.get('source', '')}\n{data['value']}")
                 self.properties.setItem(row, column, item)
-        self.properties.setColumnWidth(0, 180)
+            value = prim.GetAttribute(data['name']).Get(Usd.TimeCode(self.document.frame)) if data['group'] == 'Attributes' else data['value']
+            editor = numeric_editor(data['type'], value, self.application_settings)
+            if editor is not None and not data.get('connections'):
+                editor.setEnabled(data['editable'])
+                editor.setToolTip(self.properties.item(row, 2).toolTip() + '\nEnter or leave the field to commit; Escape cancels.')
+                context = dict(path=path, group=data['group'], name=data['name'], frame=self.document.frame)
+                document, revision = self.document, self.document.revision
+                editor.committed.connect(lambda value, context=context, document=document, revision=revision:
+                    self.safe(lambda: self.set_numeric_property(document, revision, context, value)), Qt.QueuedConnection)
+                self.properties.setCellWidget(row, 2, editor)
+            elif editor is not None:
+                editor.deleteLater()
+        self.properties.setColumnWidth(0, 130)
         self.properties.setColumnWidth(1, 75)
+
+    def set_numeric_property(self, document, revision, context, value):
+        if self.document is not document or document.revision != revision:
+            return  # An old widget must not overwrite a newer edit or Undo.
+        try:
+            self.execute('set_property', dict(context, value=value,
+                time='frame' if self.time_mode.currentIndex() else 'default'))
+        except Exception:
+            self.refresh_properties()
+            raise
+
+    def open_application_settings(self):
+        dialog = ApplicationSettingsDialog(self.application_settings, self)
+        if dialog.exec() == QDialog.Accepted:
+            self.refresh_properties()
+            editor = getattr(self, 'material_editor', None)
+            if editor:
+                for index in range(editor.tabs.count()):
+                    panel = editor.tabs.widget(index)
+                    panel.inspect(panel.current_node)
 
     def execute(self, name, *args, **kwargs):
         result = self.document.command(name, *args, **kwargs)
@@ -874,8 +952,11 @@ class MainWindow(QMainWindow):
             self.execute("create_sublayer", dict(identifier=identifier, storage="memory", name=name, expected=expected))
 
     def tool_changed(self, index):
-        self.viewport.tool = ("translate", "orient", "scale")[index]
-        self.viewport.update()
+        self.viewport.set_tool(("translate", "orient", "scale")[index])
+
+    def select_transform_tool(self, index):
+        self.tool.setCurrentIndex(index)
+        self.viewport.setFocus(Qt.ShortcutFocusReason)
 
     def space_changed(self, value):
         self.viewport.space = value.lower()
@@ -916,9 +997,19 @@ class MainWindow(QMainWindow):
         if self._refreshing:
             return
         self.document.frame = frame
+        self.timeline.set_time(frame)
         self.refresh_properties()
         self.refresh_material_tabs()
         self.schedule_view()
+
+    def scrub_frame(self, frame):
+        if self.play_timer.isActive():
+            self.toggle_play()
+        self.frame.setValue(frame)
+
+    def set_timeline_visible(self, visible):
+        self.timeline.setVisible(visible)
+        self.application_settings.set_timeline_visible(visible)
 
     def toggle_play(self):
         if self.play_timer.isActive():

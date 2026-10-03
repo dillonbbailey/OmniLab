@@ -11,9 +11,12 @@ from omnilab.frontends.qt.window import MainWindow
 
 
 @pytest.fixture
-def window():
+def window(tmp_path):
+    from PySide6.QtCore import QSettings
+    from omnilab.frontends.qt.application_settings import ApplicationSettings
     app = QApplication.instance() or QApplication([])
-    window = MainWindow(render_enabled=False)
+    settings = ApplicationSettings(QSettings(str(tmp_path/'preferences.ini'), QSettings.IniFormat))
+    window = MainWindow(render_enabled=False, application_settings=settings)
     window.show()
     window.new_demo()
     app.processEvents()
@@ -312,3 +315,286 @@ def test_relaunch_starts_same_python_and_restores_materials_without_running_cons
     finally:
         replacement.relaunching = True
         replacement.close()
+
+
+def property_editor(window, name):
+    row = next(i for i, data in enumerate(window.property_data) if data['name'] == name)
+    return window.properties.cellWidget(row, 2)
+
+
+def parameter_editor(panel, name):
+    for group_index in range(panel.parameters.topLevelItemCount()):
+        group = panel.parameters.topLevelItem(group_index)
+        for index in range(group.childCount()):
+            item = group.child(index)
+            if item.data(0, Qt.UserRole) == name:
+                return panel.parameters.itemWidget(item, 2)
+    raise AssertionError('Missing parameter ' + name)
+
+
+def enter_number(editor, text):
+    editor.setFocus()
+    editor.selectAll()
+    QTest.keyClicks(editor, text)
+    QTest.keyClick(editor, Qt.Key_Return)
+    QApplication.processEvents()
+
+
+def test_inline_float_double_precision_noop_and_undo(window):
+    from PySide6.QtWidgets import QDoubleSpinBox
+    from pxr import Sdf
+    prim = window.document.stage.GetPrimAtPath('/World/Cube')
+    attr = prim.CreateAttribute('test:float', Sdf.ValueTypeNames.Float)
+    attr.Set(.123456789)
+    window.document.select(['/World/Cube'])
+    window.refresh()
+    before = window.document.stage.GetRootLayer().ExportToString()
+    number = property_editor(window, 'test:float')
+    assert isinstance(number, QDoubleSpinBox) and number.decimals() == 6
+    assert property_editor(window, 'size').decimals() == 12
+    assert len(property_editor(window, 'xformOp:translate').fields) == 3
+    enter_number(number, number.text())
+    assert window.document.stage.GetRootLayer().ExportToString() == before
+    assert not window.document.edits.undo
+    enter_number(property_editor(window, 'test:float'), '-2.125')
+    assert attr.Get() == pytest.approx(-2.125)
+    assert len(window.document.edits.undo) == 1
+    window.execute('restore')
+    assert attr.Get() == pytest.approx(.123456789)
+    enter_number(property_editor(window, 'size'), '3.123456789012')
+    assert prim.GetAttribute('size').Get() == pytest.approx(3.123456789012, abs=1e-13)
+
+
+def test_inline_number_authors_selected_frame_and_escape_cancels(window):
+    window.document.select(['/World/Cube'])
+    window.document.frame = 3.5
+    window.time_mode.setCurrentIndex(1)
+    window.refresh()
+    editor = property_editor(window, 'size')
+    editor.setFocus()
+    editor.selectAll()
+    QTest.keyClicks(editor, '20')
+    QTest.keyClick(editor, Qt.Key_Escape)
+    QTest.keyClick(editor, Qt.Key_Return)
+    QApplication.processEvents()
+    assert not window.document.edits.undo
+    enter_number(property_editor(window, 'size'), '4.25')
+    attr = window.document.stage.GetPrimAtPath('/World/Cube').GetAttribute('size')
+    assert attr.GetTimeSamples() == [3.5]
+    assert attr.Get(3.5) == 4.25 and attr.Get() == 1.5
+    window.execute('restore')
+    assert not attr.GetTimeSamples()
+
+
+@pytest.mark.parametrize('material', ['openpbr', 'mdl'])
+def test_material_numbers_commit_with_local_undo_and_preserve_connections(window, material):
+    window.new_demo(material)
+    window.open_material_editor()
+    panel = window.material_editor.current()
+    path = panel.graph.nodes()[0]['path']
+    panel.canvas.nodes[path].setSelected(True)
+    panel.inspect(path)
+    name = 'specular_roughness' if material == 'openpbr' else 'reflection_roughness_constant'
+    editor = parameter_editor(panel, name)
+    assert editor.decimals() == 6
+    original = panel.graph.shader(path).GetInput(name).Get()
+    enter_number(editor, '.654321')
+    assert panel.graph.shader(path).GetInput(name).Get() == pytest.approx(.654321)
+    assert len(panel.graph.undo) == 1
+    panel.command('undo')
+    assert panel.graph.shader(path).GetInput(name).Get() == original
+    if material == 'openpbr':
+        source = panel.graph.add_node('ND_constant_float')
+        panel.graph.connect(source, 'out', path, name)
+        panel.reload()
+        panel.inspect(path)
+        assert parameter_editor(panel, name) is None
+
+
+def test_application_precision_dialog_persists_and_refreshes_both_panels(window):
+    from PySide6.QtWidgets import QDialogButtonBox
+    from omnilab.frontends.qt.application_settings import ApplicationSettings, ApplicationSettingsDialog
+    window.document.select(['/World/Cube'])
+    window.refresh()
+    window.open_material_editor()
+    panel = window.material_editor.current()
+    path = panel.graph.nodes()[0]['path']
+    panel.inspect(path)
+    before = window.document.stage.GetRootLayer().ExportToString()
+
+    def accept_settings():
+        dialog = QApplication.activeModalWidget()
+        assert isinstance(dialog, ApplicationSettingsDialog)
+        dialog.precision['float'].setValue(3)
+        dialog.precision['double'].setValue(9)
+        dialog.show_types.setChecked(False)
+        QTest.mouseClick(dialog.findChild(QDialogButtonBox).button(QDialogButtonBox.Ok), Qt.LeftButton)
+
+    QTimer.singleShot(0, accept_settings)
+    window.open_application_settings()
+    assert property_editor(window, 'size').decimals() == 9
+    assert parameter_editor(panel, 'specular_roughness').decimals() == 3
+    assert window.properties.isColumnHidden(1) and panel.parameters.isColumnHidden(1)
+    restored = ApplicationSettings(window.application_settings.storage)
+    assert restored.decimals('float') == 3 and restored.decimals('double') == 9
+    assert not restored.show_property_types()
+    from omnilab.frontends.qt.settings_editor import SettingsEditor
+    renderer_settings = SettingsEditor(window)
+    assert renderer_settings.table.isColumnHidden(1)
+    renderer_settings.close()
+    assert window.document.stage.GetRootLayer().ExportToString() == before
+    assert not window.document.edits.undo
+    dialog = ApplicationSettingsDialog(restored)
+    dialog.restore_defaults()
+    assert dialog.precision['float'].value() == 6 and dialog.precision['double'].value() == 12
+    assert dialog.show_types.isChecked()
+    dialog.reject()
+    assert restored.decimals('float') == 3  # Cancel does not save restored defaults.
+    assert not restored.show_property_types()
+
+
+@pytest.mark.parametrize('key,index,tool', [(Qt.Key_W, 0, 'translate'), (Qt.Key_E, 1, 'orient'), (Qt.Key_R, 2, 'scale')])
+def test_transform_shortcuts_from_stage_author_drag_and_undo(window, key, index, tool):
+    from pxr import Gf
+    window.document.select(['/World/Cube'])
+    window.refresh()
+    window.tool.setCurrentIndex((index + 1) % 3)
+    window.activateWindow()
+    window.tree.setFocus()
+    QApplication.processEvents()
+    QTest.keyClick(window.tree, key)
+    QApplication.processEvents()
+    assert window.document.selection == ['/World/Cube']
+    assert window.tool.currentIndex() == index and window.viewport.tool == tool
+    assert window.viewport.hasFocus()
+    prim = UsdGeom.Xformable(window.document.stage.GetPrimAtPath('/World/Cube'))
+    original = prim.ComputeLocalToWorldTransform(Usd.TimeCode.Default())
+    parent = UsdGeom.Xformable(window.document.stage.GetPrimAtPath('/World'))
+    parent_before = parent.GetLocalTransformation()
+    _, start, end, _ = max(window.viewport.handles, key=lambda h: (h[2]-h[1]).manhattanLength())
+    target = end + (end-start)*.5
+    QTest.mousePress(window.viewport, Qt.LeftButton, Qt.NoModifier, end.toPoint())
+    QTest.mouseMove(window.viewport, target.toPoint(), 10)
+    QTest.mouseRelease(window.viewport, Qt.LeftButton, Qt.NoModifier, target.toPoint())
+    changed = prim.ComputeLocalToWorldTransform(Usd.TimeCode.Default())
+    assert Gf.IsClose(parent.GetLocalTransformation(), parent_before, 1e-6)
+    assert not Gf.IsClose(original, changed, 1e-6)
+    assert len(window.document.edits.undo) == 1
+    if tool == 'translate':
+        assert not Gf.IsClose(original.ExtractTranslation(), changed.ExtractTranslation(), 1e-6)
+    else:
+        assert Gf.IsClose(original.ExtractTranslation(), changed.ExtractTranslation(), 1e-6)
+        if tool == 'scale':
+            assert not Gf.IsClose(Gf.Transform(original).GetScale(), Gf.Transform(changed).GetScale(), 1e-6)
+        else:
+            assert not Gf.IsClose(original.ExtractRotationMatrix(), changed.ExtractRotationMatrix(), 1e-6)
+    window.execute('restore')
+    assert Gf.IsClose(original, prim.ComputeLocalToWorldTransform(Usd.TimeCode.Default()), 1e-6)
+
+
+def test_transform_shortcuts_do_not_intercept_typing(window):
+    window.activateWindow()
+    window.filter.setFocus()
+    QTest.keyClicks(window.filter, 'wer')
+    assert window.filter.text() == 'wer' and window.viewport.tool == 'translate'
+    window.viewport.setFocus()
+    QTest.keyClick(window.viewport, Qt.Key_E)
+    assert window.viewport.tool == 'orient' and window.tool.currentText() == 'Rotate'
+    QTest.keyClick(window.viewport, Qt.Key_R, Qt.ControlModifier)
+    assert window.viewport.tool == 'orient'
+
+
+def test_timeline_toggle_scrub_and_fractional_range_follow_document(window):
+    from omnilab.frontends.qt.application_settings import ApplicationSettings
+    window.execute('set_frame_range', -2.5, 7.5)
+    history = len(window.document.edits.undo)
+    window.frame.setValue(2.5)
+    assert window.timeline.value() == window.timeline.maximum()//2
+    window.toggle_play()
+    window.timeline.setValue(window.timeline.maximum()//4)
+    assert window.document.frame == 0 and window.frame.value() == 0
+    assert not window.play_timer.isActive()
+    assert len(window.document.edits.undo) == history
+    window.timeline_action.trigger()
+    assert not window.timeline.isVisible()
+    assert not ApplicationSettings(window.application_settings.storage).timeline_visible()
+    window.timeline_action.trigger()
+    assert window.timeline.isVisible()
+    window.execute('set_frame_range', 4., 4.)
+    assert not window.timeline.isEnabled()
+
+
+def test_properties_sidebar_can_shrink_with_transform_controls_visible(window):
+    window.document.select(['/World/Cube'])
+    window.refresh()
+    window.workspace_splitter.setSizes([280, 960, 240])
+    QApplication.processEvents()
+    assert 240 <= window.properties_tabs.width() <= 260
+    assert window.properties.isVisible()
+    assert all(field.isVisible() for fields in window.transform_fields.values() for field in fields)
+
+
+@pytest.mark.parametrize('kind,count,decimals', [('Float2', 2, 6), ('Float3', 3, 6), ('Float4', 4, 6),
+                                               ('Double2', 2, 12), ('Double3', 3, 12), ('Double4', 4, 12)])
+def test_vector_value_cells_preserve_other_components_and_undo(window, kind, count, decimals):
+    from pxr import Sdf
+    from omnilab.usd.usd_editing import decode_value
+    prim = window.document.stage.GetPrimAtPath('/World/Cube')
+    type_name = getattr(Sdf.ValueTypeNames, kind)
+    attr = prim.CreateAttribute('test:vector', type_name)
+    attr.Set(decode_value(type_name, [.12345678912345]*count))
+    original = list(attr.Get())
+    window.document.select(['/World/Cube'])
+    window.refresh()
+    editor = property_editor(window, 'test:vector')
+    assert len(editor.fields) == count and editor.swatch is None
+    assert all(field.decimals() == decimals for field in editor.fields)
+    enter_number(editor.fields[1], '-3.125')
+    assert list(attr.Get()) == original[:1] + [-3.125] + original[2:]
+    assert len(window.document.edits.undo) == 1
+    window.execute('restore')
+    assert list(attr.Get()) == original
+
+
+@pytest.mark.parametrize('kind,count', [('Color3f', 3), ('Color4f', 4)])
+def test_color_cell_swatch_and_picker_commit_one_edit(window, monkeypatch, kind, count):
+    from pxr import Sdf
+    from PySide6.QtGui import QColor
+    from PySide6.QtWidgets import QColorDialog
+    from omnilab.usd.usd_editing import decode_value
+    prim = window.document.stage.GetPrimAtPath('/World/Cube')
+    type_name = getattr(Sdf.ValueTypeNames, kind)
+    attr = prim.CreateAttribute('test:color', type_name)
+    attr.Set(decode_value(type_name, [2., .25, .5, .75][:count]))
+    original = list(attr.Get())
+    window.document.select(['/World/Cube'])
+    window.refresh()
+    editor = property_editor(window, 'test:color')
+    assert editor.swatch is not None and len(editor.fields) == count
+    assert editor.fields[0].value() == 2.  # Display swatch clamps; numeric HDR value survives.
+    picked = QColor.fromRgbF(.1, .2, .3, .4)
+    monkeypatch.setattr(QColorDialog, 'getColor', lambda *args: picked)
+    QTest.mouseClick(editor.swatch, Qt.LeftButton)
+    QApplication.processEvents()
+    assert list(attr.Get()) == pytest.approx(picked.getRgbF()[:count])
+    assert len(window.document.edits.undo) == 1
+    window.execute('restore')
+    assert list(attr.Get()) == original
+
+
+def test_material_color_and_vector_cells_use_precision_preferences(window):
+    window.application_settings.save_precision(4, 10)
+    window.open_material_editor()
+    panel = window.material_editor.current()
+    path = panel.graph.nodes()[0]['path']
+    panel.canvas.nodes[path].setSelected(True)
+    panel.inspect(path)
+    color = parameter_editor(panel, 'base_color')
+    assert len(color.fields) == 3 and color.swatch is not None
+    assert all(field.decimals() == 4 for field in color.fields)
+    original = list(panel.graph.shader(path).GetInput('base_color').Get())
+    enter_number(color.fields[0], '1.25')
+    assert list(panel.graph.shader(path).GetInput('base_color').Get()) == [1.25] + original[1:]
+    assert len(panel.graph.undo) == 1
+    panel.command('undo')
+    assert list(panel.graph.shader(path).GetInput('base_color').Get()) == original

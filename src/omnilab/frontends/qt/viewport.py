@@ -19,6 +19,7 @@ class Viewport(QWidget):
     transformPreviewChanged = Signal(object)
     cameraCommitted = Signal(dict)
     frameRequested = Signal(bool)
+    toolChanged = Signal(str)
     resized = Signal()
 
     def __init__(self, parent=None):
@@ -338,6 +339,16 @@ class Viewport(QWidget):
             representation='matrix', frame=self.document.frame, time=self.edit_time,
             apertures=[camera.horizontalAperture, camera.verticalAperture] if self.camera.orthographic else None))
 
+    def set_tool(self, tool):
+        if tool == self.tool:
+            return
+        if self.drag and self.drag['kind'] == 'transform':
+            self.drag = self.preview_world = None
+            self.transformPreviewChanged.emit(None)
+        self.tool = tool
+        self.toolChanged.emit(tool)
+        self.update()
+
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Escape:
             if self.drag and self.drag['kind'] == 'transform':
@@ -350,8 +361,7 @@ class Viewport(QWidget):
             self.update()
         elif event.key() == Qt.Key_F:
             self.frameRequested.emit(bool(event.modifiers() & Qt.ShiftModifier))
-        elif event.key() in (Qt.Key_W, Qt.Key_E, Qt.Key_R):
-            self.tool = {Qt.Key_W: "translate", Qt.Key_E: "orient", Qt.Key_R: "scale"}[event.key()]
-            self.update()
+        elif event.key() in (Qt.Key_W, Qt.Key_E, Qt.Key_R) and event.modifiers() == Qt.NoModifier:
+            self.set_tool({Qt.Key_W: "translate", Qt.Key_E: "orient", Qt.Key_R: "scale"}[event.key()])
         else:
             super().keyPressEvent(event)

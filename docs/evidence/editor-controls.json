@@ -1,0 +1,15 @@
+{
+  "status": "passed",
+  "native_ovrtx": true,
+  "transform_keys_and_drag_undo": [
+    "W",
+    "E",
+    "R"
+  ],
+  "settings_dialog": true,
+  "property_type_toggle": true,
+  "timeline_mouse_and_keyboard_scrub": true,
+  "fractional_range": true,
+  "minimum_sidebar_width": 240,
+  "material_vector_color_cells": true
+}

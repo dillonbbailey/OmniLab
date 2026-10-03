@@ -19,6 +19,8 @@ from .material_canvas import GraphCanvas
 from .material_preview import MaterialPreview
 from .texture_preview import TexturePreview
 from .labels import ElidedLabel
+from .application_settings import ApplicationSettings
+from .numeric_editor import NumericEditor, numeric_editor
 
 
 def parameter_text(value):
@@ -32,9 +34,10 @@ def parameter_text(value):
 class GraphPanel(QWidget):
     changed = Signal()
 
-    def __init__(self, graph, parent=None):
+    def __init__(self, graph, parent=None, *, application_settings=None):
         super().__init__(parent)
         self.graph = graph
+        self.application_settings = application_settings if application_settings is not None else ApplicationSettings()
         self.current_node = ''
         self.initial_frame_pending = True
         layout = QVBoxLayout(self)
@@ -155,7 +158,10 @@ class GraphPanel(QWidget):
         self.reload()
 
     def inspect(self, path):
+        self.parameters.setColumnHidden(1, not self.application_settings.show_property_types())
         self.current_node = path
+        for editor in self.parameters.findChildren(NumericEditor):
+            editor.blockSignals(True)
         self.parameters.clear()
         node = next((n for n in self.graph.nodes() if n['path'] == path), None)
         if not node:
@@ -186,9 +192,29 @@ class GraphPanel(QWidget):
             item.setToolTip(0, port['metadata'].get('doc', name))
             item.setToolTip(2, 'Double-click to edit; right-click for raw values or connections.\n' + (port['connection'] or json.dumps(port['value'])))
             groups[group].addChild(item)
+            if not port['connection']:
+                editor = numeric_editor(port['type'], port['value'], self.application_settings)
+                if editor is not None:
+                    editor.setToolTip(item.toolTip(2) + '\nEnter or leave the field to commit; Escape cancels.')
+                    revision = self.graph.document.revision
+                    editor.committed.connect(lambda value, path=path, name=name, revision=revision:
+                        self.set_numeric_parameter(path, name, value, revision), Qt.QueuedConnection)
+                    self.parameters.setItemWidget(item, 2, editor)
         self.parameters.expandAll()
         self.parameters.setColumnWidth(0, 155)
         self.parameters.setColumnWidth(1, 70)
+
+    def set_numeric_parameter(self, path, name, value, revision):
+        if self.graph.document.revision != revision:
+            return
+        try:
+            self.graph.set_value(path, name, value)
+        except Exception as error:
+            self.inspect(self.current_node)
+            self.error(error)
+            return
+        self.reload()
+        self.changed.emit()
 
     def edit_parameter(self, item, raw=False):
         name = item.data(0, Qt.UserRole)
@@ -315,6 +341,7 @@ class MaterialEditor(QDialog):
             action.triggered.connect(lambda checked=False, callback=callback: owner.safe(callback))
         tools_button.setMenu(tools_menu)
         tools_menu.addSeparator()
+        tools_menu.addAction('Application Settings…', lambda: owner.safe(owner.open_application_settings))
         tools_menu.addAction('Relaunch OmniLab', lambda: owner.safe(owner.relaunch))
         row.addWidget(tools_button)
         layout.addLayout(row)
@@ -437,7 +464,7 @@ class MaterialEditor(QDialog):
             if str(self.tabs.widget(index).graph.path) == path:
                 self.tabs.setCurrentIndex(index)
                 return
-        panel = GraphPanel(MaterialGraph(self.document, path))
+        panel = GraphPanel(MaterialGraph(self.document, path), application_settings=self.owner.application_settings)
         panel.changed.connect(self.changed)
         self.tabs.addTab(panel, path.rsplit('/', 1)[-1])
         self.tabs.setCurrentWidget(panel)

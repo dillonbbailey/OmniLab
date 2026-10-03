@@ -28,3 +28,19 @@ Reproduce CPU checks with `.venv/bin/python -m pytest -q`. On an isolated X disp
 ```
 
 The first two need the installed RTX runtime and an NVIDIA GPU; the layout replay additionally uses the optional MDL SDK adapter. Relaunch acceptance uses `xwininfo` and `xprop` and terminates only its own replacement process. Full captures and test projects are under ignored `artifacts/`. These changes target Qt; the existing [ovUI scope and remaining differences](P6_STATUS.md) still apply.
+
+## Inline values, application settings and viewport controls
+
+The next Qt update adds `QDoubleSpinBox` cells for scalar floats/doubles and 2-, 3- and 4-component values, including USD float/double vectors and MaterialX vector/color inputs. Colors include a swatch opening the color picker; RGBA exposes alpha. Numeric fields preserve HDR values even when the display swatch is clamped. Connected material inputs continue to show their source. Enter or leaving a field commits one undoable edit; Escape cancels. Editing one component preserves the exact stored values of the other components.
+
+**Edit → Application Settings**, also available from the Material Editor's Tools menu, opens a small preferences window. Defaults are **6 decimal places for floats** and **12 for doubles**. **Show property types** controls the Type column in the main Properties table, material parameter tree and ovRTX settings tree. Preferences use Qt's per-user settings and survive relaunch independently of projects. Changing display precision or focusing an unchanged field does not author rounded values to USD. The numeric precision preference applies to the property Value cells; existing transform-toolbar and timeline fields retain their own formats.
+
+**W/E/R** now use the same Translate/Rotate/Scale selection as the toolbar, from the viewport or Stage tree. Selecting a tool focuses the viewport; dragging an axis authors a transform with one undo entry. Text entry and modified shortcuts are not intercepted. **View → Show Timeline** toggles a scrubber between the current-frame and range controls. Mouse scrubbing and one-frame arrow-key steps update the frame and pause playback. Fractional range endpoints are accepted by the shared range command. The main Properties tab can shrink to 240 pixels; scroll areas keep wider content accessible.
+
+The updated CPU suite passes **169 tests**, including scalar/vector/color edits, no-op precision preservation, component isolation, color selection, local/global undo, application preference persistence, Type visibility, keyboard-selected transform authoring, fractional timeline scrubbing and narrow sidebar layout. Native input/GPU results are recorded in [editor-controls.json](evidence/editor-controls.json). Reproduce that check on an isolated display with `.venv/bin/python tools/replay_editor_controls.py`; its preferences are saved under ignored `artifacts/editor-controls` and do not change the user's defaults.
+
+![Application settings](evidence/application-settings.png)
+
+![Inline material vectors and color swatches with Type hidden](evidence/material-values.png)
+
+[Viewport, inline Properties and timeline capture](evidence/editor-controls.png).

@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 import tempfile
 
-from pxr import Gf, Sdf, Usd, UsdGeom, UsdLux
+from pxr import Gf, Sdf, Usd, UsdGeom
 from .usd_schemas import apply_schema
 
 PRIM_TYPES = ("Xform", "Scope", "Sphere", "Cube", "Cone", "Cylinder", "Capsule", "Plane",
@@ -345,10 +345,9 @@ class StageEdits:
         return self.change(("Activate " if active else "Deactivate ") + label, author)
 
     def set_frame_range(self, start, end):
-        if any(type(value) is not int or not -(2 ** 31) <= value < 2 ** 31 for value in (start, end)):
-            raise ValueError("Frame range endpoints must be 32-bit whole numbers.")
-        if start > end:
-            raise ValueError("Start frame must not be after end frame.")
+        from .stage_metadata import validate_metadata
+        values = validate_metadata(dict(startTimeCode=start, endTimeCode=end))
+        start, end = values['startTimeCode'], values['endTimeCode']
         if (start, end) == (self.stage.GetStartTimeCode(), self.stage.GetEndTimeCode()):
             return
         # Stage time bounds compose from root/session metadata, not arbitrary
