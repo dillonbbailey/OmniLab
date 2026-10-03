@@ -28,7 +28,9 @@ def field(value="", width=None, multiline=False, read_only=False):
     if width is not None:
         args["width"] = width
     track_edit(model)
-    ui.StringField(**args)
+    widget = ui.StringField(**args)
+    from .value_menu import install_value_menu
+    install_value_menu(widget, lambda: model.as_string)
     return model
 
 

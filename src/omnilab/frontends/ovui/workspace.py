@@ -8,8 +8,8 @@ import omni.ui as ui
 from pxr import UsdGeom
 from ovui_widgets.common import scheduler
 from ovui_widgets.common.selection import SelectionBus
-from ovui_widgets.stage.window import StageWindow
-from ovui_widgets.property.window import PropertyWindow
+from .stage_window import OmniLabStageWindow
+from .property_window import OmniLabPropertyWindow
 from ovui_widgets.content.file_importer import FileImporterHelper
 from omnilab.core.document import Document
 from omnilab.core.fixtures import demo_document
@@ -17,6 +17,12 @@ from omnilab.core.camera import ViewCamera, scene_camera
 from omnilab.render.session import InteractiveSession
 from .adapters import DocumentStageAdapter, DocumentPropertyAdapter
 from .widgets import ImageSurface, field, combo, button, track_edit, text_editing
+from .value_menu import copy_value, close_clipboard
+from omnilab.usd.property_actions import (
+    prim_text,
+    bound_material_path,
+    prims_with_bound_material,
+)
 
 
 class Workspace:
@@ -58,8 +64,12 @@ class Workspace:
             self.document, self.changed, self.call_later
         )
         self.dock = ui.MainWindow()
-        self.stage_window = StageWindow(self.stage_adapter, self.selection_bus)
-        self.property_window = PropertyWindow()
+        self.stage_window = OmniLabStageWindow(
+            self.stage_adapter,
+            self.selection_bus,
+            lambda p, x, y: self.safe(lambda: self.prim_menu(p, x, y)),
+        )
+        self.property_window = OmniLabPropertyWindow(self.safe)
         self.property_window.set_property_adapter_factory(
             lambda paths: DocumentPropertyAdapter(self.document, paths, self.changed)
         )
@@ -379,7 +389,7 @@ class Workspace:
         with ui.VStack(spacing=4):
             with ui.HStack(height=26):
                 button("Add prim", self.add_prim_dialog, self)
-                button("Duplicate", self.duplicate, self)
+                button("Duplicate", self.duplicate_menu, self)
                 button("Delete", self.delete, self)
             with ui.ScrollingFrame():
                 with ui.VStack(height=0, spacing=4):
@@ -436,9 +446,54 @@ class Workspace:
             ),
         )
 
-    def duplicate(self):
+    def duplicate(self, mode="copy"):
         for path in list(self.document.selection):
-            self.execute("duplicate_prim", path, "copy")
+            self.execute("duplicate_prim", path, mode)
+
+    def duplicate_menu(self):
+        self.active_prim_menu = ui.Menu("Duplicate")
+        with self.active_prim_menu:
+            ui.MenuItem("As New Prim", triggered_fn=lambda: self.safe(self.duplicate))
+            ui.MenuItem(
+                "As Instance",
+                triggered_fn=lambda: self.safe(lambda: self.duplicate("instance")),
+            )
+        self.active_prim_menu.show()
+
+    def prim_menu(self, path, x, y):
+        prim = self.document.stage.GetPrimAtPath(path)
+        if not prim:
+            return
+        self.selection_bus.publish([path], source="context_menu")
+        menu = ui.Menu("Prim")
+        with menu:
+            with ui.Menu("Duplicate"):
+                ui.MenuItem(
+                    "As New Prim", triggered_fn=lambda: self.safe(self.duplicate)
+                )
+                ui.MenuItem(
+                    "As Instance",
+                    triggered_fn=lambda: self.safe(lambda: self.duplicate("instance")),
+                )
+            if bound_material_path(prim):
+                ui.MenuItem(
+                    "Select prims with bound material",
+                    triggered_fn=lambda: self.safe(
+                        lambda: self.selection_bus.publish(
+                            prims_with_bound_material(prim), source="material"
+                        )
+                    ),
+                )
+            with ui.Menu("Copy Prim"):
+                for part in ("Name", "Path", "Type", "Properties"):
+                    ui.MenuItem(
+                        part,
+                        triggered_fn=lambda p=part: self.safe(
+                            lambda: copy_value(prim_text(prim, p, self.document.frame))
+                        ),
+                    )
+        self.active_prim_menu = menu
+        menu.show_at(x, y)
 
     def delete(self):
         for path in sorted(self.document.selection, key=len, reverse=True):
@@ -535,9 +590,11 @@ class Workspace:
             self.form(
                 "Unsaved changes — save first or type DISCARD",
                 {"confirmation": ""},
-                lambda v: self.replace(factory())
-                if v["confirmation"] == "DISCARD"
-                else self.set_status("Document retained."),
+                lambda v: (
+                    self.replace(factory())
+                    if v["confirmation"] == "DISCARD"
+                    else self.set_status("Document retained.")
+                ),
             )
         else:
             self.replace(factory())
@@ -623,9 +680,11 @@ class Workspace:
         elif ctrl and key in (ord("Z"), ord("z"), ord("Y"), ord("y")):
             redo = bool(shift or key in (ord("Y"), ord("y")))
             self.safe(
-                lambda: self.materials.undo(redo)
-                if self.materials.window.focused
-                else self.execute("restore", redo=redo)
+                lambda: (
+                    self.materials.undo(redo)
+                    if self.materials.window.focused
+                    else self.execute("restore", redo=redo)
+                )
             )
         elif self.viewport.focused and key in (ord("F"), ord("f")):
             self.frame_selected()
@@ -722,6 +781,7 @@ class Workspace:
         self.closed = True
         self.safe(self.recover)
         for cleanup in (
+            close_clipboard,
             self.renderer.close,
             self.materials.close,
             self.render_view.close,

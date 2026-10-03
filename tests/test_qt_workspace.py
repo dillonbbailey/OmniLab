@@ -722,3 +722,82 @@ def test_material_color_and_vector_cells_use_precision_preferences(window):
     assert len(panel.graph.undo) == 1
     panel.command('undo')
     assert list(panel.graph.shader(path).GetInput('base_color').Get()) == original
+
+
+def test_rtx_color_editor_trailing_swatch_copy_reset_and_scope_guard(window, monkeypatch):
+    import json
+    from PySide6.QtGui import QColor
+    from PySide6.QtWidgets import QColorDialog
+    from omnilab.frontends.qt.settings_editor import SettingsEditor
+    name = 'omni:rtx:post:tonemap:whitepoint'
+    panel = SettingsEditor(window)
+    panel.search.setText(name)
+    item = panel.table.topLevelItem(0)
+    color = panel.table.itemWidget(item, 3)
+    assert len(color.fields) == 3 and color.layout().itemAt(3).widget() is color.swatch
+    assert all(field.decimals() == 6 for field in color.fields)
+    assert name not in panel.values()  # Showing the schema default authors nothing.
+    picked = QColor.fromRgbF(.125, .25, .5)
+    monkeypatch.setattr(QColorDialog, 'getColor', lambda *args: picked)
+    QTest.mouseClick(color.swatch, Qt.LeftButton)
+    QApplication.processEvents()
+    assert panel.values()[name] == pytest.approx(picked.getRgbF()[:3])
+    item = panel.table.topLevelItem(0)
+    color = panel.table.itemWidget(item, 3)
+    def execute(menu, *args):
+        try:
+            next(a for a in menu.actions() if a.text() == 'Copy values').trigger()
+        finally:
+            menu.close()
+    QTimer.singleShot(0, lambda: execute(QApplication.activePopupWidget()))
+    color.fields[1].customContextMenuRequested.emit(QPoint(1, 1))
+    assert json.loads(QApplication.clipboard().text()) == panel.values()[name]
+    generation, document = panel.generation, window.document
+    panel.scope.setCurrentIndex(1)
+    panel.set_color(name, [1., 2., 3.], generation, document)
+    assert name not in panel.values()
+    panel.scope.setCurrentIndex(0)
+    panel.table.setCurrentItem(panel.table.topLevelItem(0))
+    panel.reset()
+    assert name not in panel.values()
+    panel.close()
+
+
+def test_duplicate_menu_and_prim_context_actions(window):
+    import json
+    from PySide6.QtWidgets import QMenu
+    from pxr import UsdShade
+    stage = window.document.stage
+    cube = stage.GetPrimAtPath('/World/Cube')
+    UsdShade.MaterialBindingAPI.Apply(cube).Bind(UsdShade.Material.Get(stage, '/World/Looks/Surface'))
+    window.document.select(['/World/Cube'])
+    window.refresh()
+    choices = window.duplicate_menu(QMenu(window))
+    assert [a.text() for a in choices.actions()] == ['As New Prim', 'As Instance']
+    choices.actions()[1].trigger()
+    assert stage.GetPrimAtPath('/World/Cube_1').IsInstanceable()
+    window.execute('restore')
+    window.document.select(['/World/Cube'])
+    window.refresh()
+    results = []
+    def execute(menu, *args):
+        try:
+            actions = menu.actions()
+            copy_action = next(a for a in actions if a.text() == 'Copy Prim')
+            copy = copy_action.menu()
+            results.append([a.text() for a in copy.actions()])
+            copy.actions()[1].trigger()
+            results.append(QApplication.clipboard().text())
+            copy.actions()[3].trigger()
+            results.append(json.loads(QApplication.clipboard().text()))
+            next(a for a in actions if a.text() == 'Select prims with bound material').trigger()
+        finally:
+            menu.close()
+    QTimer.singleShot(0, lambda: execute(QApplication.activePopupWidget()))
+    item = window.tree_items['/World/Cube']
+    window.tree.scrollToItem(item)
+    window.prim_menu(window.tree.visualItemRect(item).center())
+    assert results[:2] == [['Name', 'Path', 'Type', 'Properties'], '/World/Cube']
+    assert 'attributes' in results[2]
+    assert set(window.document.selection) == {'/World/Cube', '/World/Sphere'}
+    assert not window.document.edits.undo

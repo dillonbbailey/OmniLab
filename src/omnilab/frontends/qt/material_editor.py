@@ -21,6 +21,7 @@ from .texture_preview import TexturePreview
 from .labels import ElidedLabel
 from .application_settings import ApplicationSettings
 from .numeric_editor import NumericEditor, numeric_editor
+from .value_menu import copy_value, install_editor_menu
 
 
 def parameter_text(value):
@@ -192,9 +193,11 @@ class GraphPanel(QWidget):
             item.setToolTip(0, port['metadata'].get('doc', name))
             item.setToolTip(2, 'Double-click to edit; right-click for raw values or connections.\n' + (port['connection'] or json.dumps(port['value'])))
             groups[group].addChild(item)
-            if not port['connection']:
+            if not port['connection'] or port['type'] in ('color3', 'color3f'):
                 editor = numeric_editor(port['type'], port['value'], self.application_settings)
                 if editor is not None:
+                    editor.setEnabled(not port['connection'])
+                    install_editor_menu(editor, lambda value=port['value']: value)
                     editor.setToolTip(item.toolTip(2) + '\nEnter or leave the field to commit; Escape cancels.')
                     revision = self.graph.document.revision
                     editor.committed.connect(lambda value, path=path, name=name, revision=revision:
@@ -253,6 +256,9 @@ class GraphPanel(QWidget):
         if not item or not item.data(0, Qt.UserRole):
             return
         menu = QMenu(self)
+        name = item.data(0, Qt.UserRole)
+        node = next(n for n in self.graph.nodes() if n['path'] == self.current_node)
+        menu.addAction('Copy values', lambda: copy_value(node['inputs'][name]['value']))
         menu.addAction('Edit raw value…', lambda: self.edit_parameter(item, True))
         menu.addAction('Disconnect input', lambda: self.edit(lambda: self.graph.disconnect(self.current_node, item.data(0, Qt.UserRole))))
         menu.exec(self.parameters.viewport().mapToGlobal(point))

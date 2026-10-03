@@ -7,6 +7,8 @@ from omnilab.automation.console_session import ConsoleSession
 from omnilab.core.document import atomic_json
 from omnilab.render.settings import definitions, validate, export_settings, CONTROLLED
 from .widgets import button, combo
+from .color_editor import ColorEditor, COLOR_TYPES
+from .value_menu import install_value_menu
 
 
 class ConsolePanel:
@@ -124,10 +126,25 @@ class SettingsPanel:
                     with ui.HStack(height=28):
                         ui.Label(name, width=440, tooltip=definition["description"])
                         ui.Label(definition["type"], width=95)
-                        ui.Label(
-                            json.dumps(values.get(name, definition["default"])),
-                            width=190,
-                        )
+                        current = values.get(name, definition["default"])
+                        if definition["type"] in COLOR_TYPES:
+                            document, scope = self.owner.document, self.scope
+                            with ui.HStack(width=230):
+                                ColorEditor(
+                                    current,
+                                    lambda v, n=name, d=document, s=scope: (
+                                        self.owner.safe(
+                                            lambda: self.set_color(n, v, d, s)
+                                        )
+                                    ),
+                                    enabled=name not in CONTROLLED,
+                                    safe=self.owner.safe,
+                                )
+                        else:
+                            label = ui.Label(json.dumps(current), width=190)
+                            install_value_menu(
+                                label, lambda v=current: v, self.owner.safe
+                            )
                         button(
                             "Edit",
                             lambda n=name, d=definition: self.edit(n, d),
@@ -159,6 +176,12 @@ class SettingsPanel:
             {"value": json.dumps(self.values().get(name, definition["default"]))},
             apply,
         )
+
+    def set_color(self, name, value, document, scope):
+        if self.owner.document is not document or self.scope != scope:
+            return
+        self.values()[name] = validate(name, value, self.scope == 3)
+        self.changed()
 
     def reset(self, name):
         self.values().pop(name, None)

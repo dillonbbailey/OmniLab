@@ -11,6 +11,7 @@ from omnilab.materials.catalog import default_catalog
 from omnilab.materials.studio import studio_scene
 from omnilab.render.session import InteractiveSession
 from .widgets import ImageSurface, field, combo, button, track_edit
+from .color_editor import ColorEditor, COLOR_TYPES
 
 
 class MaterialEditor:
@@ -149,9 +150,9 @@ class MaterialEditor:
                 combo(
                     paths or ["No materials"],
                     paths.index(self.path) if self.path in paths else 0,
-                    changed=lambda index: self.set_material(paths[index])
-                    if paths
-                    else None,
+                    changed=lambda index: (
+                        self.set_material(paths[index]) if paths else None
+                    ),
                 )
                 button("New OpenPBR", self.new, self.owner, width=110)
                 button("Bind selected", self.bind, self.owner, width=105)
@@ -407,17 +408,30 @@ class MaterialEditor:
                 for name, port in node["inputs"].items():
                     with ui.HStack(height=25):
                         ui.Label(name + " (" + port["type"] + ")", width=220)
-                        value = field(json.dumps(port.get("value")))
-                        button(
-                            "Set",
-                            lambda p=node["path"], n=name, m=value: self.mutate(
-                                lambda: self.graph.set_value(
-                                    p, n, json.loads(m.as_string)
-                                )
-                            ),
-                            self.owner,
-                            width=40,
-                        )
+                        if port["type"] in COLOR_TYPES:
+                            graph, revision = self.graph, self.owner.document.revision
+                            ColorEditor(
+                                port.get("value"),
+                                lambda v, g=graph, r=revision, p=node["path"], n=name: (
+                                    self.owner.safe(
+                                        lambda: self.set_color(g, r, p, n, v)
+                                    )
+                                ),
+                                enabled=not port.get("connection"),
+                                safe=self.owner.safe,
+                            )
+                        else:
+                            value = field(json.dumps(port.get("value")))
+                            button(
+                                "Set",
+                                lambda p=node["path"], n=name, m=value: self.mutate(
+                                    lambda: self.graph.set_value(
+                                        p, n, json.loads(m.as_string)
+                                    )
+                                ),
+                                self.owner,
+                                width=40,
+                            )
                         if self.connection:
                             button(
                                 "Connect",
@@ -434,6 +448,15 @@ class MaterialEditor:
                                 self.owner,
                                 width=90,
                             )
+
+    def set_color(self, graph, revision, path, name, value):
+        if (
+            self.graph is not graph
+            or graph.document is not self.owner.document
+            or self.owner.document.revision != revision
+        ):
+            return
+        self.mutate(lambda: graph.set_value(path, name, value))
 
     def add_node(self, identifier):
         definition = default_catalog().definition(identifier)

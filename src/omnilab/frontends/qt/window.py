@@ -27,6 +27,8 @@ from .renderer import RendererBridge
 from .viewport import Viewport
 from .application_settings import ApplicationSettings, ApplicationSettingsDialog
 from .numeric_editor import NumericEditor, numeric_editor
+from .value_menu import install_editor_menu, copy_value
+from omnilab.usd.property_actions import property_value, prim_text, bound_material_path, prims_with_bound_material
 from .timeline import Timeline
 
 
@@ -126,7 +128,7 @@ class MainWindow(QMainWindow):
         menu = self.menuBar().addMenu("&Edit")
         self.undo_action = self.action(menu, "Undo", lambda: self.execute("restore"), "Ctrl+Z")
         self.redo_action = self.action(menu, "Redo", lambda: self.execute("restore", True), "Ctrl+Shift+Z")
-        self.action(menu, "Duplicate selected prim", self.duplicate, "Ctrl+D")
+        self.duplicate_menu(menu, shortcuts=True)
         self.action(menu, "Delete selected prim", self.remove, "Delete")
         self.action(menu, "Rename selected prim…", self.rename, "F2")
         self.action(menu, "Bind existing material…", self.bind_material)
@@ -300,6 +302,8 @@ class MainWindow(QMainWindow):
         self.properties.setHorizontalHeaderLabels(["Property", "Type", "Value"])
         self.properties.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.properties.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.properties.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.properties.customContextMenuRequested.connect(self.property_menu)
         self.properties.cellDoubleClicked.connect(lambda row, col: self.safe(lambda: self.edit_property(row)))
         self.properties.horizontalHeader().setStretchLastSection(True)
         p_layout.addWidget(self.properties, 1)
@@ -711,16 +715,15 @@ class MainWindow(QMainWindow):
                 self.properties.setItem(row, column, item)
             value = prim.GetAttribute(data['name']).Get(Usd.TimeCode(self.document.frame)) if data['group'] == 'Attributes' else data['value']
             editor = numeric_editor(data['type'], value, self.application_settings)
-            if editor is not None and not data.get('connections'):
-                editor.setEnabled(data['editable'])
+            if editor is not None:
+                editor.setEnabled(data['editable'] and not data.get('connections'))
                 editor.setToolTip(self.properties.item(row, 2).toolTip() + '\nEnter or leave the field to commit; Escape cancels.')
                 context = dict(path=path, group=data['group'], name=data['name'], frame=self.document.frame)
                 document, revision = self.document, self.document.revision
                 editor.committed.connect(lambda value, context=context, document=document, revision=revision:
                     self.safe(lambda: self.set_numeric_property(document, revision, context, value)), Qt.QueuedConnection)
                 self.properties.setCellWidget(row, 2, editor)
-            elif editor is not None:
-                editor.deleteLater()
+                install_editor_menu(editor, lambda p=prim, d=data: property_value(p, d['group'], d['name'], self.document.frame))
         self.properties.setColumnWidth(0, 130)
         self.properties.setColumnWidth(1, 75)
 
@@ -843,8 +846,28 @@ class MainWindow(QMainWindow):
         if ok:
             self.execute("add_prim", self.selected_path(), name, kind)
 
-    def duplicate(self):
-        self.execute("duplicate_prim", self.selected_path(), "copy")
+    def duplicate(self, mode="copy"):
+        self.execute("duplicate_prim", self.selected_path(), mode)
+
+    def duplicate_menu(self, menu, shortcuts=False):
+        submenu = menu.addMenu('Duplicate')
+        self.action(submenu, 'As New Prim', self.duplicate, 'Ctrl+D' if shortcuts else None)
+        self.action(submenu, 'As Instance', lambda: self.duplicate('instance'))
+        return submenu
+
+    def property_menu(self, position):
+        item = self.properties.itemAt(position)
+        if item is None or item.column() != 2:
+            return
+        data = self.property_data[item.row()]
+        prim = self.document.stage.GetPrimAtPath(self.selected_path())
+        menu = QMenu(self)
+        self.action(menu, 'Copy values', lambda: copy_value(property_value(prim, data['group'], data['name'], self.document.frame)))
+        menu.exec(self.properties.viewport().mapToGlobal(position))
+
+    def select_same_material(self, prim):
+        self.document.select(prims_with_bound_material(prim))
+        self.refresh()
 
     def remove(self):
         self.execute("remove_prim", self.selected_path())
@@ -917,12 +940,21 @@ class MainWindow(QMainWindow):
         editor.raise_()
 
     def prim_menu(self, position):
+        clicked = self.tree.itemAt(position)
+        if clicked is not None:
+            self.tree.setCurrentItem(clicked)
         path = self.selected_path()
         prim = self.document.stage.GetPrimAtPath(path)
         menu = QMenu(self)
         self.action(menu, "Rename…", self.rename)
-        self.action(menu, "Duplicate", self.duplicate)
+        self.duplicate_menu(menu)
         self.action(menu, "Delete", self.remove)
+        if prim:
+            copy_menu = menu.addMenu('Copy Prim')
+            for part in ('Name', 'Path', 'Type', 'Properties'):
+                self.action(copy_menu, part, lambda p=part: copy_value(prim_text(prim, p, self.document.frame)))
+            if bound_material_path(prim):
+                self.action(menu, 'Select prims with bound material', lambda: self.select_same_material(prim))
         if prim and not prim.IsPseudoRoot():
             self.action(menu, "Deactivate" if prim.IsActive() else "Activate", lambda: self.execute("set_prim_active", path, not prim.IsActive()))
             self.action(menu, "Lock transforms", lambda: self.execute("set_transform_lock", path, True))

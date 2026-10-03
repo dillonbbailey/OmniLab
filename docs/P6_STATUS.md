@@ -45,6 +45,18 @@ Validation: **188 tests passed**, including preference recovery, all five palett
 
 ## Implemented workflows
 
+### Property and prim context actions
+
+`color3f` values have three native numeric fields and a trailing color-picker square in the Property Inspector, Material Editor and RTX settings. HDR numeric values remain available; opening and closing a picker without changing the color does not author a rounded value. A completed property/material color edit is one undo step. Renderer overrides retain their existing view-settings persistence.
+
+Right-click values for **Copy values**. Compound editors copy the entire value, and property copies use the underlying data rather than truncated labels. The Property Inspector also retains NVIDIA's Paste Value and Reset to Default actions. The pinned ovUI wheel has no public OS clipboard setter; a small child process using the existing Qt dependency owns the system clipboard while ovUI runs.
+
+Stage prim context menus provide **Copy Prim → Name / Path / Type / Properties**, **Duplicate → As New Prim / As Instance**, and **Select prims with bound material** when a material resolves on the clicked prim. Selection resolves inherited/collection bindings and includes instance proxies with that effective material. Copy and selection do not create undo entries. Properties exports current-frame attribute values, connections and relationship targets as JSON.
+
+Validation: **194 tests passed**, covering full typed clipboard values, inherited/overridden material bindings, Qt menus/settings controls, HDR no-op edits and native color transactions. Native screenshots and input/state checks are recorded in [property-action evidence](evidence/property-actions.json).
+
+Screenshots: [color picker](evidence/ovui-property-color.png), [prim context menu](evidence/ovui-prim-actions.png), [RTX color setting](evidence/ovui-settings-color.png).
+
 | Area | Implementation |
 |---|---|
 | Stage and properties | NVIDIA Stage Browser and Property Inspector read the authoritative OpenUSD stage. Rename, reparent, visibility and property commits use OmniLab transactions. Group visibility/reparent edits and multi-selection properties produce one undo step; failed batches roll back. F2 renames and Delete removes selected stage prims. |
@@ -96,7 +108,7 @@ Run NVIDIA's `skills/omniverse-ui-inspector/scripts/ovui-inspect.py wait` and `s
 
 - Qt remains the more complete frontend. Its composition/variant/asset-publishing dialogs, scene-camera authoring toggle, purpose controls, advanced transform gestures, filled-surface wire/points overlays, light/camera guides and MCP connection panel have not all been ported to native ovUI controls. Shared USD commands are available through the command form or console. Native shaded/unlit wireframe is already available.
 - The ovUI viewport currently renders at 800 × 500 with aspect-preserving presentation; automatic viewport-resolution scaling and GPU texture presentation remain future optimizations. Grid/transform handles are editor overlays without scene-depth occlusion. The stock property inspector authors default values; animated transform authoring is available through the gizmo/time-sample control and shared commands.
-- The native material inspector uses typed JSON values instead of all Qt color/texture widgets and grouped annotations. Texture thumbnails, graph marquee/automatic layout and the full projector/blur-bake dialogs remain Qt features. Additional native MDL UI acceptance beyond the shared SDK/core coverage remains open.
+- The native material inspector has numeric/color-picker rows for colors and typed JSON for other inputs. Qt texture widgets and grouped annotations, graph marquee/automatic layout and the full projector/blur-bake dialogs remain Qt features. Additional native MDL UI acceptance beyond the shared SDK/core coverage remains open.
 - ovUI RenderView provides channel views/exposure and viewer-source jobs. Qt's complete source selector, matte/component tools, float pixel probe, region-drag gesture and image navigation remain to be ported. ovUI job logs live in the session's temporary diagnostic directory; EXRs are durable outputs.
 - Layouts and material-canvas navigation are frontend presentation state. USD layers, graph values/positions/bindings, material studio state and settings use the shared project model. Exhaustive shortcut/layout equivalence, very large-stage performance and release packaging are still acceptance gates.
 

@@ -1,0 +1,133 @@
+{
+  "date": "2026-10-03",
+  "runtime": "ovui 0.2.0",
+  "nvidia_widgets_commit": "a81db103a4d99ff2d75368a444e167889536ff42",
+  "method": "Isolated Xvfb; temporary preferences; NVIDIA Inspector mouse inputs, one action between visually inspected screenshots. Read-only state enabled, Python execution disabled. Authoring-only run with --no-render.",
+  "checks": {
+    "pytest": "194 passed",
+    "qt_after_final_copy_precision_adjustment": "42 passed",
+    "ruff": "F checks passed",
+    "build": "wheel and sdist passed",
+    "os_clipboard_color": [
+      0.4710424542427063,
+      0.26916709542274475,
+      0.298006534576416
+    ],
+    "os_clipboard_prim_path": "/World/Cube",
+    "os_clipboard_validation": "Read back from a separate Qt process on the isolated display; original numeric precision and full vector verified.",
+    "color3f_fields_and_trailing_swatch": "Visually verified in Properties, Material Editor and RTX Settings",
+    "qt_checks": "Real context-menu actions, duplication as instance, clipboard output, bound-material selection, color picker commit/reset/stale-scope guard.",
+    "core_checks": "Inherited bindings and overrides, no history mutation on copy/select, current-frame values and full arrays."
+  },
+  "actions": {
+    "color-picker": {
+      "revision": 0,
+      "selection": [
+        "/World/Cube"
+      ],
+      "undo": 0,
+      "redo": 0
+    },
+    "pick-color-value": {
+      "revision": 0,
+      "selection": [
+        "/World/Cube"
+      ],
+      "undo": 0,
+      "redo": 0
+    },
+    "commit-picked-color": {
+      "revision": 1,
+      "selection": [
+        "/World/Cube"
+      ],
+      "undo": 1,
+      "redo": 0
+    },
+    "copy-color": {
+      "revision": 1,
+      "selection": [
+        "/World/Cube"
+      ],
+      "undo": 1,
+      "redo": 0
+    },
+    "select-bound": {
+      "revision": 1,
+      "selection": [
+        "/World/Sphere",
+        "/World/Cube"
+      ],
+      "undo": 1,
+      "redo": 0
+    },
+    "copy-prim-choices": {
+      "revision": 1,
+      "selection": [
+        "/World/Cube"
+      ],
+      "undo": 1,
+      "redo": 0
+    },
+    "copy-prim-path": {
+      "revision": 1,
+      "selection": [
+        "/World/Cube"
+      ],
+      "undo": 1,
+      "redo": 0
+    },
+    "material-color-fields": {
+      "revision": 0,
+      "selection": [
+        "/World/Cube"
+      ],
+      "undo": 0,
+      "redo": 0,
+      "base_color": [
+        0.07999999821186066,
+        0.3199999928474426,
+        0.6499999761581421
+      ]
+    },
+    "material-color-edit": {
+      "revision": 1,
+      "selection": [
+        "/World/Cube"
+      ],
+      "undo": 1,
+      "redo": 0,
+      "base_color": [
+        0.3100000023841858,
+        0.3199999928474426,
+        0.6499999761581421
+      ]
+    },
+    "material-color-undo": {
+      "revision": 2,
+      "selection": [
+        "/World/Cube"
+      ],
+      "undo": 2,
+      "redo": 0,
+      "base_color": [
+        0.07999999821186066,
+        0.3199999928474426,
+        0.6499999761581421
+      ]
+    },
+    "settings-colors": {
+      "revision": 2,
+      "selection": [
+        "/World/Cube"
+      ],
+      "undo": 2,
+      "redo": 0,
+      "base_color": [
+        0.07999999821186066,
+        0.3199999928474426,
+        0.6499999761581421
+      ]
+    }
+  }
+}

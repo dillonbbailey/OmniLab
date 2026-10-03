@@ -7,7 +7,7 @@ def duplicate_prim(stage, path, mode):
     source = Sdf.Path(path)
     prim = stage.GetPrimAtPath(source)
     if mode not in ("copy", "instance"):
-        raise ValueError("Choose New prim or Instance.")
+        raise ValueError("Choose As New Prim or As Instance.")
     if not editable_prim(prim) or prim.IsPseudoRoot():
         raise ValueError("Select an editable prim. Instance contents must be duplicated at their source.")
     parent = prim.GetParent()

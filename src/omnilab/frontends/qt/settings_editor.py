@@ -3,16 +3,19 @@ import json
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QComboBox, QLineEdit, QTreeWidget,
-    QTreeWidgetItem, QLabel, QPushButton, QFileDialog)
+    QTreeWidgetItem, QLabel, QPushButton, QFileDialog, QMenu)
 
 from omnilab.core.document import atomic_json
 from omnilab.render.settings import definitions, validate, export_settings, CONTROLLED
+from .numeric_editor import numeric_editor
+from .value_menu import copy_value
 
 
 class SettingsEditor(QDialog):
     def __init__(self, owner):
         super().__init__(owner)
         self.owner = owner
+        self.generation = 0
         self.setWindowTitle('ovRTX settings — OmniLab')
         self.resize(1280, 760)
         layout = QVBoxLayout(self)
@@ -34,6 +37,8 @@ class SettingsEditor(QDialog):
         self.table = QTreeWidget()
         self.table.setHeaderLabels(['Setting', 'Type', 'Schema / API default', 'Authored override', 'Group / evidence'])
         self.table.itemDoubleClicked.connect(lambda item, column: owner.safe(lambda: self.edit(item)))
+        self.table.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.table.customContextMenuRequested.connect(self.value_menu)
         layout.addWidget(self.table)
         self.search.textChanged.connect(self.populate)
         self.scope.currentIndexChanged.connect(self.populate)
@@ -46,6 +51,7 @@ class SettingsEditor(QDialog):
         return self.owner.document.view.setdefault('rtx_settings', {}).setdefault(profile, {})
 
     def populate(self, *_):
+        self.generation += 1
         self.table.setColumnHidden(1, not self.owner.application_settings.show_property_types())
         self.table.clear()
         values = self.values()
@@ -59,6 +65,16 @@ class SettingsEditor(QDialog):
             for column in range(5):
                 item.setToolTip(column, definition['description'] + '\n' + definition['status'])
             self.table.addTopLevelItem(item)
+            if definition['type'] == 'color3f' and name not in CONTROLLED:
+                editor = numeric_editor(definition['type'], values.get(name, definition['default']),
+                                        self.owner.application_settings)
+                if editor is not None:
+                    origin = 'Authored override.' if name in values else 'No override; showing the schema default. Edit to author.'
+                    editor.setToolTip(origin + '\nRGB values; the last square opens the color picker.')
+                    generation, document = self.generation, self.owner.document
+                    editor.committed.connect(lambda value, n=name, g=generation, d=document:
+                        self.owner.safe(lambda: self.set_color(n, value, g, d)), Qt.QueuedConnection)
+                    self.table.setItemWidget(item, 3, editor)
         for name in values.keys() - definitions(self.scope.currentIndex() == 3).keys():
             if all(word in name.lower() for word in words):
                 item = QTreeWidgetItem([name, 'unknown', 'unknown', json.dumps(values[name]), 'Imported; unsupported by this catalog'])
@@ -67,7 +83,13 @@ class SettingsEditor(QDialog):
         self.table.setColumnWidth(0, 460)
         self.table.setColumnWidth(1, 110)
         self.table.setColumnWidth(2, 170)
-        self.table.setColumnWidth(3, 200)
+        self.table.setColumnWidth(3, 265)
+
+    def set_color(self, name, value, generation, document):
+        if generation != self.generation or document is not self.owner.document:
+            return
+        self.values()[name] = validate(name, value, self.scope.currentIndex() == 3)
+        self.changed()
 
     def edit(self, item):
         from .window import json_dialog
@@ -80,6 +102,18 @@ class SettingsEditor(QDialog):
         if result is not None:
             self.values()[name] = validate(name, result['value'], self.scope.currentIndex() == 3)
             self.changed()
+
+    def value_menu(self, position):
+        item = self.table.itemAt(position)
+        column = self.table.columnAt(position.x())
+        if item is None or column not in (2, 3):
+            return
+        name = item.data(0, Qt.UserRole)
+        definition = definitions(self.scope.currentIndex() == 3).get(name, {})
+        value = definition.get('default') if column == 2 else self.values().get(name, definition.get('default'))
+        menu = QMenu(self)
+        menu.addAction('Copy values', lambda: copy_value(value))
+        menu.exec(self.table.viewport().mapToGlobal(position))
 
     def reset(self):
         item = self.table.currentItem()

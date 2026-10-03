@@ -7,6 +7,7 @@ from PySide6.QtCore import Qt, QSize, Signal
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QDoubleSpinBox, QSizePolicy, QWidget, QHBoxLayout, QPushButton, QColorDialog
 from shiboken6 import isValid
+from .value_menu import install_editor_menu
 
 
 class NumericEditor(QDoubleSpinBox):
@@ -25,6 +26,7 @@ class NumericEditor(QDoubleSpinBox):
         # never author its rounded representation back into USD.
         self.original = self.value()
         self.editingFinished.connect(self.finish)
+        install_editor_menu(self, self.value)
 
     def sizeHint(self):
         return QSize(130, super().sizeHint().height())
@@ -79,6 +81,7 @@ class VectorEditor(QWidget):
             self.swatch.clicked.connect(self.choose_color)
             layout.addWidget(self.swatch)
             self.update_swatch()
+        install_editor_menu(self, lambda: list(self.values))
 
     def minimumSizeHint(self):
         return QSize(0, super().minimumSizeHint().height())
@@ -130,6 +133,8 @@ def numeric_editor(kind, value, settings, parent=None):
     if not match:
         return None
     family, count, precision = match.groups()
+    if family == 'color' and value is None:
+        value = [0.] * int(count)
     try:
         values = list(value)
         if len(values) != int(count) or any(isinstance(v, bool) or not math.isfinite(float(v)) for v in values):
