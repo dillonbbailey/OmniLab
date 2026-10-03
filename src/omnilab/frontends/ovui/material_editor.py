@@ -258,6 +258,10 @@ class MaterialEditor:
         nodes = self.graph.nodes()
         sockets = {}
         with ui.ZStack(width=1600, height=1200):
+            ui.Rectangle(
+                style_type_name_override="Material.CanvasBackground",
+                opaque_for_mouse_events=False,
+            )
             for node in nodes:
                 x, y = node["position"]
                 names = list(
@@ -273,17 +277,15 @@ class MaterialEditor:
                         width=220,
                         height=0,
                         spacing=0,
-                        style={"background_color": 0xFF33302D},
+                        style_type_name_override="Material.NodeBackground",
                     ):
                         ui.Button(
                             node["name"] + " · " + node["framework"],
                             height=28,
                             explicit_hover=True,
-                            style={
-                                "background_color": 0xFF886033
-                                if node["path"] in self.selected
-                                else 0xFF554438
-                            },
+                            name="material_node_selected"
+                            if node["path"] in self.selected
+                            else "material_node",
                             mouse_pressed_fn=lambda x, y, b, m, n=node: self.node_down(
                                 n, x, y, b, m
                             ),
@@ -322,7 +324,7 @@ class MaterialEditor:
                             target,
                             start_tangent_width=70,
                             end_tangent_width=-70,
-                            style={"color": 0xFFC8AA55, "border_width": 2},
+                            style_type_name_override="Material.Connection",
                             opaque_for_mouse_events=False,
                         )
 

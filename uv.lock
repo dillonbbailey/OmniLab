@@ -278,10 +278,13 @@ ovui = [
     { name = "ovui-data-adapters-common" },
     { name = "ovui-data-adapters-openusd" },
     { name = "ovui-data-adapters-services" },
+    { name = "ovui-widgets-app" },
     { name = "ovui-widgets-common" },
     { name = "ovui-widgets-content" },
+    { name = "ovui-widgets-layers" },
     { name = "ovui-widgets-property" },
     { name = "ovui-widgets-stage" },
+    { name = "ovui-widgets-viewport" },
 ]
 ovui-qa = [
     { name = "fastapi" },
@@ -308,10 +311,13 @@ requires-dist = [
     { name = "ovui-data-adapters-common", marker = "extra == 'ovui'", git = "https://github.com/NVIDIA-Omniverse/ovui.git?subdirectory=ovui-data-adapters%2Fdist%2Fcommon&rev=a81db103a4d99ff2d75368a444e167889536ff42" },
     { name = "ovui-data-adapters-openusd", marker = "extra == 'ovui'", git = "https://github.com/NVIDIA-Omniverse/ovui.git?subdirectory=ovui-data-adapters%2Fdist%2Fopenusd&rev=a81db103a4d99ff2d75368a444e167889536ff42" },
     { name = "ovui-data-adapters-services", marker = "extra == 'ovui'", git = "https://github.com/NVIDIA-Omniverse/ovui.git?subdirectory=ovui-data-adapters%2Fdist%2Fservices&rev=a81db103a4d99ff2d75368a444e167889536ff42" },
+    { name = "ovui-widgets-app", marker = "extra == 'ovui'", git = "https://github.com/NVIDIA-Omniverse/ovui.git?subdirectory=ovui-widgets%2Fdist%2Fapp&rev=a81db103a4d99ff2d75368a444e167889536ff42" },
     { name = "ovui-widgets-common", marker = "extra == 'ovui'", git = "https://github.com/NVIDIA-Omniverse/ovui.git?subdirectory=ovui-widgets%2Fdist%2Fcommon&rev=a81db103a4d99ff2d75368a444e167889536ff42" },
     { name = "ovui-widgets-content", marker = "extra == 'ovui'", git = "https://github.com/NVIDIA-Omniverse/ovui.git?subdirectory=ovui-widgets%2Fdist%2Fcontent&rev=a81db103a4d99ff2d75368a444e167889536ff42" },
+    { name = "ovui-widgets-layers", marker = "extra == 'ovui'", git = "https://github.com/NVIDIA-Omniverse/ovui.git?subdirectory=ovui-widgets%2Fdist%2Flayers&rev=a81db103a4d99ff2d75368a444e167889536ff42" },
     { name = "ovui-widgets-property", marker = "extra == 'ovui'", git = "https://github.com/NVIDIA-Omniverse/ovui.git?subdirectory=ovui-widgets%2Fdist%2Fproperty&rev=a81db103a4d99ff2d75368a444e167889536ff42" },
     { name = "ovui-widgets-stage", marker = "extra == 'ovui'", git = "https://github.com/NVIDIA-Omniverse/ovui.git?subdirectory=ovui-widgets%2Fdist%2Fstage&rev=a81db103a4d99ff2d75368a444e167889536ff42" },
+    { name = "ovui-widgets-viewport", marker = "extra == 'ovui'", git = "https://github.com/NVIDIA-Omniverse/ovui.git?subdirectory=ovui-widgets%2Fdist%2Fviewport&rev=a81db103a4d99ff2d75368a444e167889536ff42" },
     { name = "pillow", specifier = "==12.1.1" },
     { name = "pyside6-essentials", specifier = "==6.8.3" },
     { name = "pytest", marker = "extra == 'dev'", specifier = "==8.4.2" },
@@ -393,6 +399,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "ovui-widgets-app"
+version = "0.2.0"
+source = { git = "https://github.com/NVIDIA-Omniverse/ovui.git?subdirectory=ovui-widgets%2Fdist%2Fapp&rev=a81db103a4d99ff2d75368a444e167889536ff42#a81db103a4d99ff2d75368a444e167889536ff42" }
+dependencies = [
+    { name = "ovui" },
+    { name = "ovui-data-adapters-common" },
+    { name = "ovui-widgets-common", extra = ["testing"] },
+    { name = "ovui-widgets-content" },
+    { name = "ovui-widgets-layers" },
+    { name = "ovui-widgets-property" },
+    { name = "ovui-widgets-stage" },
+    { name = "ovui-widgets-viewport" },
+]
+
+[[package]]
 name = "ovui-widgets-common"
 version = "0.2.0"
 source = { git = "https://github.com/NVIDIA-Omniverse/ovui.git?subdirectory=ovui-widgets%2Fdist%2Fcommon&rev=a81db103a4d99ff2d75368a444e167889536ff42#a81db103a4d99ff2d75368a444e167889536ff42" }
@@ -401,11 +422,25 @@ dependencies = [
     { name = "ovui-data-adapters-common" },
 ]
 
+[package.optional-dependencies]
+testing = [
+    { name = "numpy" },
+]
+
 [[package]]
 name = "ovui-widgets-content"
 version = "0.2.0"
 source = { git = "https://github.com/NVIDIA-Omniverse/ovui.git?subdirectory=ovui-widgets%2Fdist%2Fcontent&rev=a81db103a4d99ff2d75368a444e167889536ff42#a81db103a4d99ff2d75368a444e167889536ff42" }
 dependencies = [
+    { name = "ovui-widgets-common" },
+]
+
+[[package]]
+name = "ovui-widgets-layers"
+version = "0.2.0"
+source = { git = "https://github.com/NVIDIA-Omniverse/ovui.git?subdirectory=ovui-widgets%2Fdist%2Flayers&rev=a81db103a4d99ff2d75368a444e167889536ff42#a81db103a4d99ff2d75368a444e167889536ff42" }
+dependencies = [
+    { name = "ovui-data-adapters-common" },
     { name = "ovui-widgets-common" },
 ]
 
@@ -423,6 +458,16 @@ name = "ovui-widgets-stage"
 version = "0.2.0"
 source = { git = "https://github.com/NVIDIA-Omniverse/ovui.git?subdirectory=ovui-widgets%2Fdist%2Fstage&rev=a81db103a4d99ff2d75368a444e167889536ff42#a81db103a4d99ff2d75368a444e167889536ff42" }
 dependencies = [
+    { name = "ovui-data-adapters-common" },
+    { name = "ovui-widgets-common" },
+]
+
+[[package]]
+name = "ovui-widgets-viewport"
+version = "0.2.0"
+source = { git = "https://github.com/NVIDIA-Omniverse/ovui.git?subdirectory=ovui-widgets%2Fdist%2Fviewport&rev=a81db103a4d99ff2d75368a444e167889536ff42#a81db103a4d99ff2d75368a444e167889536ff42" }
+dependencies = [
+    { name = "numpy" },
     { name = "ovui-data-adapters-common" },
     { name = "ovui-widgets-common" },
 ]

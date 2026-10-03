@@ -13,11 +13,35 @@ uv sync --python 3.12 --extra rtx --extra dev --extra ovui
 
 The supported environment is Linux x86_64, Python 3.12, an X display/OpenGL context, and a supported NVIDIA RTX GPU/driver for rendering. `--no-render` permits authoring without starting ovRTX; ovUI still needs a display context. The ovUI application imports neither Qt nor ovRTX/ovstage: the latter run in owned child processes. Qt remains an installed dependency for the original executable.
 
-The native core is **ovui 0.2.0**. NVIDIA's common/services/OpenUSD data adapters and common/stage/property/content widgets are installed from commit **`a81db103a4d99ff2d75368a444e167889536ff42`** of [NVIDIA-Omniverse/ovui](https://github.com/NVIDIA-Omniverse/ovui/tree/a81db103a4d99ff2d75368a444e167889536ff42). The pure Python widget distributions are separate from the native wheel. Their source dependencies are pinned in `pyproject.toml` and `uv.lock`. OmniLab supplies its existing OpenUSD 26.8 environment; it does not install the upstream sample's alternative USD runtime.
+The native core is **ovui 0.2.0**. NVIDIA's common/services/OpenUSD data adapters and common/stage/property/content/layers/viewport/app widgets are installed from commit **`a81db103a4d99ff2d75368a444e167889536ff42`** of [NVIDIA-Omniverse/ovui](https://github.com/NVIDIA-Omniverse/ovui/tree/a81db103a4d99ff2d75368a444e167889536ff42). The pure Python widget distributions are separate from the native wheel. Their source dependencies are pinned in `pyproject.toml` and `uv.lock`. OmniLab supplies its existing OpenUSD 26.8 environment; it does not install the upstream sample's alternative USD runtime.
 
 Dock positions persist in `$XDG_CONFIG_HOME/omnilab/ovui/imgui.ini` (normally `~/.config/omnilab/ovui`). Use `--reset-layout` to recover the initial arrangement. New/Open prompts before discarding dirty USD. Closing the native window writes a `recovery-<timestamp>.omnilab` beside the layout when the document has unsaved USD edits. Reopen that file normally to recover the edits. Save explicitly to retain presentation-only changes.
 
 The ovUI process uses this configuration directory as its working directory for the SDK's layout persistence. Use absolute filesystem paths in Python console scripts; scene/project asset anchors are retained independently.
+
+## Appearance
+
+Added 2026-10-03. Open **Appearance** from the top toolbar, choose a theme and density, then **Apply**. **Close** discards unapplied choices when the panel is reopened. **Restore defaults** selects OvGear Dark and Compact; Apply commits that selection.
+
+| Preset | Appearance |
+|---|---|
+| OvGear Dark | NVIDIA's dark palette with blue accents. |
+| OvGear Light | NVIDIA's light palette with blue accents. |
+| Showcase Orange | Dark workspace with orange accents. |
+| Showcase Blue | Dark workspace with deeper blue accents. |
+| Showcase Teal | Dark workspace with teal accents. |
+
+Showcase presets adapt the accent colors from NVIDIA's standalone example; they are OmniLab presets, not separately distributed NVIDIA theme packages. All presets use NVIDIA's global, Stage, Property, Layers and Content dictionaries together, plus OmniLab's material canvas and layer-state styles. Hover, focus, selection, disabled controls, asset dialogs and render/settings panels inherit those styles. Density sets typography and style sizing independently of colors; component layouts retain their existing geometry. An explicit Noto Sans font from the ovUI wheel makes font-size changes work on the standalone runtime.
+
+Preferences are written atomically to `$XDG_CONFIG_HOME/omnilab/ovui/appearance.json` (normally `~/.config/omnilab/ovui/appearance.json`). Invalid or missing preferences recover to Dark/Compact. These are user preferences outside USD/project files. Applying a theme does not rebuild document panels, discard input models, change scene values or restart ovRTX. `--reset-layout` resets docking only.
+
+The centralized owner is `src/omnilab/frontends/ovui/style/`; palette roles and density constants remain separate from selectors. The Qt frontend retains its existing application settings and appearance.
+
+Validation: **188 tests passed**, including preference recovery, all five palettes, density independence and existing core/Qt/ovUI coverage. Native Inspector checks used an isolated Xvfb display and temporary preferences, with before/after screenshots for individual inputs. See the [appearance evidence](evidence/ovui-appearance.json).
+
+![Light ovUI workspace](evidence/ovui-appearance-light.png)
+
+![Appearance controls with Showcase Teal](evidence/ovui-appearance-teal.png)
 
 ## Implemented workflows
 

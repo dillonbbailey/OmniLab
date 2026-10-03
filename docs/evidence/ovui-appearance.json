@@ -1,0 +1,311 @@
+{
+  "date": "2026-10-03",
+  "frontend": "ovui",
+  "runtime": "0.2.0",
+  "nvidia_widgets_commit": "a81db103a4d99ff2d75368a444e167889536ff42",
+  "method": "NVIDIA Inspector mouse inputs, one action between inspected screenshots; read-only state; execution disabled; isolated Xvfb 1440x900; temporary XDG_CONFIG_HOME.",
+  "checks": {
+    "all_five_presets_visually_reviewed": true,
+    "defaults_require_apply": true,
+    "unapplied_choices_discarded_on_reopen": true,
+    "saved_appearance_restored_after_restart": true,
+    "density_changes_visible_after_bundled_font_fix": true,
+    "scene_selection_material_values_and_undo_preserved": true,
+    "viewport_request_and_publication_counts_unchanged_by_theme": true,
+    "native_viewport_frames": 17,
+    "native_material_preview_frames": 8,
+    "pytest": "188 passed",
+    "ruff": "F checks passed",
+    "build": "wheel and sdist passed"
+  },
+  "observations": [
+    "The default standalone font initially ignored requested sizes. Explicitly selecting the bundled Noto Sans font fixed live density changes.",
+    "Material preview compiled before reaching 8 frames without errors. Theme changes did not interrupt the viewport."
+  ],
+  "actions": {
+    "restarted-appearance": {
+      "appearance": {
+        "density": "comfortable",
+        "theme": "showcase_orange"
+      },
+      "revision": 0,
+      "dirty": false,
+      "selection": [],
+      "undo": 0,
+      "redo": 0,
+      "render": {
+        "error": "",
+        "frames": 0,
+        "presented": -1,
+        "publications": 0,
+        "request": 1
+      },
+      "preview": {
+        "error": "",
+        "frames": 0
+      },
+      "material": "",
+      "material_selected": []
+    },
+    "apply-compact": {
+      "appearance": {
+        "density": "compact",
+        "theme": "showcase_orange"
+      },
+      "revision": 0,
+      "dirty": false,
+      "selection": [],
+      "undo": 0,
+      "redo": 0,
+      "render": {
+        "error": "",
+        "frames": 0,
+        "presented": -1,
+        "publications": 0,
+        "request": 1
+      },
+      "preview": {
+        "error": "",
+        "frames": 0
+      },
+      "material": "",
+      "material_selected": []
+    },
+    "select-cube": {
+      "appearance": {
+        "density": "compact",
+        "theme": "showcase_orange"
+      },
+      "revision": 0,
+      "dirty": false,
+      "selection": [
+        "/World/Cube"
+      ],
+      "undo": 0,
+      "redo": 0,
+      "render": {
+        "error": "",
+        "frames": 17,
+        "presented": 3,
+        "publications": 1,
+        "request": 3
+      },
+      "preview": {
+        "error": "",
+        "frames": 0
+      },
+      "material": "",
+      "material_selected": []
+    },
+    "select-material-node": {
+      "appearance": {
+        "density": "compact",
+        "theme": "showcase_orange"
+      },
+      "revision": 0,
+      "dirty": false,
+      "selection": [
+        "/World/Cube"
+      ],
+      "undo": 0,
+      "redo": 0,
+      "render": {
+        "error": "",
+        "frames": 17,
+        "presented": 3,
+        "publications": 1,
+        "request": 3
+      },
+      "preview": {
+        "error": "",
+        "frames": 0
+      },
+      "material": "/World/Looks/Surface",
+      "material_selected": [
+        "/World/Looks/Surface/Shader"
+      ]
+    },
+    "material-apply-light": {
+      "appearance": {
+        "density": "compact",
+        "theme": "light"
+      },
+      "revision": 0,
+      "dirty": false,
+      "selection": [
+        "/World/Cube"
+      ],
+      "undo": 0,
+      "redo": 0,
+      "render": {
+        "error": "",
+        "frames": 17,
+        "presented": 3,
+        "publications": 1,
+        "request": 3
+      },
+      "preview": {
+        "error": "",
+        "frames": 0
+      },
+      "material": "/World/Looks/Surface",
+      "material_selected": [
+        "/World/Looks/Surface/Shader"
+      ]
+    },
+    "apply-blue": {
+      "appearance": {
+        "density": "compact",
+        "theme": "showcase_blue"
+      },
+      "revision": 0,
+      "dirty": false,
+      "selection": [
+        "/World/Cube"
+      ],
+      "undo": 0,
+      "redo": 0,
+      "render": {
+        "error": "",
+        "frames": 17,
+        "presented": 3,
+        "publications": 1,
+        "request": 3
+      },
+      "preview": {
+        "error": "",
+        "frames": 8
+      },
+      "material": "/World/Looks/Surface",
+      "material_selected": [
+        "/World/Looks/Surface/Shader"
+      ]
+    },
+    "apply-teal": {
+      "appearance": {
+        "density": "compact",
+        "theme": "showcase_teal"
+      },
+      "revision": 0,
+      "dirty": false,
+      "selection": [
+        "/World/Cube"
+      ],
+      "undo": 0,
+      "redo": 0,
+      "render": {
+        "error": "",
+        "frames": 17,
+        "presented": 3,
+        "publications": 1,
+        "request": 3
+      },
+      "preview": {
+        "error": "",
+        "frames": 8
+      },
+      "material": "/World/Looks/Surface",
+      "material_selected": [
+        "/World/Looks/Surface/Shader"
+      ]
+    },
+    "defaults-pending": {
+      "appearance": {
+        "density": "compact",
+        "theme": "showcase_teal"
+      },
+      "revision": 0,
+      "dirty": false,
+      "selection": [
+        "/World/Cube"
+      ],
+      "undo": 0,
+      "redo": 0,
+      "render": {
+        "error": "",
+        "frames": 17,
+        "presented": 3,
+        "publications": 1,
+        "request": 3
+      },
+      "preview": {
+        "error": "",
+        "frames": 8
+      },
+      "material": "/World/Looks/Surface",
+      "material_selected": [
+        "/World/Looks/Surface/Shader"
+      ]
+    },
+    "reopened-pending-discarded": {
+      "appearance": {
+        "density": "compact",
+        "theme": "showcase_teal"
+      },
+      "revision": 0,
+      "dirty": false,
+      "selection": [
+        "/World/Cube"
+      ],
+      "undo": 0,
+      "redo": 0,
+      "render": {
+        "error": "",
+        "frames": 17,
+        "presented": 3,
+        "publications": 1,
+        "request": 3
+      },
+      "preview": {
+        "error": "",
+        "frames": 8
+      },
+      "material": "/World/Looks/Surface",
+      "material_selected": [
+        "/World/Looks/Surface/Shader"
+      ]
+    },
+    "apply-defaults": {
+      "appearance": {
+        "density": "compact",
+        "theme": "dark"
+      },
+      "revision": 0,
+      "dirty": false,
+      "selection": [
+        "/World/Cube"
+      ],
+      "undo": 0,
+      "redo": 0,
+      "render": {
+        "error": "",
+        "frames": 17,
+        "presented": 3,
+        "publications": 1,
+        "request": 3
+      },
+      "preview": {
+        "error": "",
+        "frames": 8
+      },
+      "material": "/World/Looks/Surface",
+      "material_selected": [
+        "/World/Looks/Surface/Shader"
+      ]
+    }
+  },
+  "screenshots": {
+    "ovui-appearance-light.png": {
+      "source_action": "close-materials",
+      "sha256": "2a8fdf9528520bc6fe9a6c8c5766c4ebd813e9a81001bac5c54e8b71b9133c3e"
+    },
+    "ovui-appearance-teal.png": {
+      "source_action": "apply-teal",
+      "sha256": "414d540db4650ef6670259316a0a56d40367cc25178f2f8224a7e484acbe2099"
+    },
+    "ovui-appearance-orange.png": {
+      "source_action": "select-cube",
+      "sha256": "460695a2861a08910400c474f7d12a53ecafb402aa254a7a87ef8b3e37aa3f97"
+    }
+  }
+}

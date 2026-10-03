@@ -23,6 +23,9 @@ ovui = [
     "ovui-widgets-stage @ git+https://github.com/NVIDIA-Omniverse/ovui.git@a81db103a4d99ff2d75368a444e167889536ff42#subdirectory=ovui-widgets/dist/stage",
     "ovui-widgets-property @ git+https://github.com/NVIDIA-Omniverse/ovui.git@a81db103a4d99ff2d75368a444e167889536ff42#subdirectory=ovui-widgets/dist/property",
     "ovui-widgets-content @ git+https://github.com/NVIDIA-Omniverse/ovui.git@a81db103a4d99ff2d75368a444e167889536ff42#subdirectory=ovui-widgets/dist/content",
+    "ovui-widgets-layers @ git+https://github.com/NVIDIA-Omniverse/ovui.git@a81db103a4d99ff2d75368a444e167889536ff42#subdirectory=ovui-widgets/dist/layers",
+    "ovui-widgets-viewport @ git+https://github.com/NVIDIA-Omniverse/ovui.git@a81db103a4d99ff2d75368a444e167889536ff42#subdirectory=ovui-widgets/dist/viewport",
+    "ovui-widgets-app @ git+https://github.com/NVIDIA-Omniverse/ovui.git@a81db103a4d99ff2d75368a444e167889536ff42#subdirectory=ovui-widgets/dist/app",
 ]
 dev = ["pytest==8.4.2"]
 ovui-qa = ["fastapi==0.142.2", "uvicorn==0.54.0", "httpx==0.28.1", "python-multipart==0.0.32"]

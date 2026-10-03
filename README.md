@@ -22,6 +22,8 @@ uv sync --extra rtx --extra dev --extra ovui
 .venv/bin/omnilab-ovui --demo
 ```
 
+In ovUI, **Appearance** in the top toolbar selects **OvGear Dark / Light** or **Showcase Orange / Blue / Teal**, plus independent **Compact / Comfortable** density. Apply updates open panels immediately and saves your preference across launches; Restore defaults selects Dark/Compact for the next Apply.
+
 [ovUI launch, controls, validation and remaining parity work](docs/P6_STATUS.md). The controls described below refer to Qt.
 
 The editor retains USD layers, edit targets, transforms, typed properties, composition arcs, variants, bindings, undo/redo and composition-preserving saves. `.omnilab` projects also retain session layers, mute/load state, material tabs/studios and renderer settings. Asset publishing is a separate composed-content operation.

@@ -20,7 +20,7 @@ from .widgets import ImageSurface, field, combo, button, track_edit, text_editin
 
 
 class Workspace:
-    def __init__(self, args):
+    def __init__(self, args, appearance=None):
         self.args, self.failure = args, None
         self.exiting = False
         self.callbacks = []
@@ -69,12 +69,21 @@ class Workspace:
         from .material_editor import MaterialEditor
         from .render_view import RenderView
         from .panels import ConsolePanel, SettingsPanel
+        from .appearance import Appearance
+        from .appearance_panel import AppearancePanel
 
         self.materials = MaterialEditor(self)
         self.render_view = RenderView(self)
         self.console = ConsolePanel(self)
         self.settings = SettingsPanel(self)
-        for panel in (self.materials, self.render_view, self.console, self.settings):
+        self.appearance = AppearancePanel(self, appearance or Appearance.load())
+        for panel in (
+            self.materials,
+            self.render_view,
+            self.console,
+            self.settings,
+            self.appearance,
+        ):
             panel.window.visible = False
         self.toolbar = self.window("OmniLab", self.build_toolbar, 1000, 95)
         self.windows.extend([self.stage_window.window, self.property_window.window])
@@ -139,6 +148,7 @@ class Workspace:
                     ("RenderView", self.render_view.show),
                     ("Python", self.console.show),
                     ("RTX settings", self.settings.show),
+                    ("Appearance", self.appearance.show),
                 ]:
                     button(name, fn, self)
             ui.StringField(model=self.status, read_only=True, height=25)
@@ -380,6 +390,7 @@ class Workspace:
                                 ("● " if active else "") + layer.GetDisplayName(),
                                 lambda l=layer: self.set_target(l),
                                 self,
+                                name="layer_edit_target" if active else "",
                             )
                             if layer not in (
                                 self.document.stage.GetRootLayer(),
@@ -400,6 +411,7 @@ class Workspace:
                                 "set_layer_muted", i, False
                             ),
                             self,
+                            name="layer_muted",
                         )
             with ui.HStack(height=26):
                 button("New layer", self.new_layer, self)
@@ -592,6 +604,7 @@ class Workspace:
             or self.console.window.focused
             or self.property_window.is_focused
             or self.settings.window.focused
+            or self.appearance.window.focused
             or self.render_view.window.focused
         ):
             return
@@ -625,8 +638,11 @@ class Workspace:
         self.exiting = True
 
     def get_inspector_state(self):
+        from dataclasses import asdict
+
         return dict(
             frontend="ovui",
+            appearance=asdict(self.appearance.current),
             path=self.document.path,
             dirty=self.document.dirty,
             revision=self.document.revision,

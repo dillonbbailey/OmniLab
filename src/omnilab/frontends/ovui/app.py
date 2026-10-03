@@ -39,11 +39,14 @@ def main():
         parser.error(
             "ovUI could not create a window. Check DISPLAY and OpenGL availability."
         )
-    from .layout import initialize_layout, apply_style
+    from .layout import initialize_layout
+    from .appearance import Appearance
+    from .style import apply_style
 
     initialize_layout(args.reset_layout)
-    apply_style()
-    app = Workspace(args)
+    appearance = Appearance.load()
+    apply_style(appearance)
+    app = Workspace(args, appearance)
     try:
         ui.run(app.run())
     finally:
